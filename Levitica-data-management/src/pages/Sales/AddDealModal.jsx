@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Save, Calendar } from "lucide-react";
 
 const inputClass = "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
 const labelClass = "block text-xs font-medium text-body uppercase tracking-wider mb-1.5";
 
 const formatINR = (n) => (n == null || isNaN(n) ? "0" : "₹" + Number(n).toLocaleString("en-IN"));
+const parseINR = (str) => parseFloat(String(str ?? "").replace(/[₹,\s]/g, "")) || 0;
 const getInitials = (name) =>
   name
     .trim()
@@ -14,7 +15,7 @@ const getInitials = (name) =>
     .toUpperCase()
     .slice(0, 2);
 
-export default function AddDealModal({ open, onClose, onSave }) {
+export default function AddDealModal({ open, onClose, onSave, deal: editingDeal }) {
   const today = new Date();
   const todayStr = `${String(today.getDate()).padStart(2, "0")}-${String(today.getMonth() + 1).padStart(2, "0")}-${today.getFullYear()}`;
 
@@ -36,6 +37,47 @@ export default function AddDealModal({ open, onClose, onSave }) {
     notes: "",
   });
 
+  useEffect(() => {
+    if (!open) return;
+    if (editingDeal) {
+      setForm({
+        companyName: editingDeal.company || "",
+        contactPerson: editingDeal.contact || "",
+        email: editingDeal.email || "",
+        phone: "",
+        industry: editingDeal.industry || "",
+        city: editingDeal.location || "",
+        dealValue: String(parseINR(editingDeal.dealValue)) || "",
+        stage: editingDeal.stage || "Lead",
+        probability: String(editingDeal.probability ?? 30),
+        owner: editingDeal.owner || "Arjun Sharma",
+        source: editingDeal.source || "",
+        dealIndustry: editingDeal.industry || "",
+        followUpDate: editingDeal.followUp || "",
+        expectedCloseDate: editingDeal.expectedClose === "-" ? "" : (editingDeal.expectedClose || ""),
+        notes: "",
+      });
+    } else {
+      setForm({
+        companyName: "",
+        contactPerson: "",
+        email: "",
+        phone: "",
+        industry: "",
+        city: "",
+        dealValue: "",
+        stage: "Lead",
+        probability: "30",
+        owner: "Arjun Sharma",
+        source: "",
+        dealIndustry: "",
+        followUpDate: "",
+        expectedCloseDate: "",
+        notes: "",
+      });
+    }
+  }, [open, editingDeal]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -46,7 +88,7 @@ export default function AddDealModal({ open, onClose, onSave }) {
     if (!form.companyName?.trim()) return;
     const amountNum = parseFloat(String(form.dealValue).replace(/,/g, "")) || 0;
     const newDeal = {
-      id: Date.now(),
+      id: editingDeal?.id ?? Date.now(),
       company: form.companyName.trim(),
       location: form.city?.trim() || "-",
       contact: form.contactPerson?.trim() || "-",
@@ -60,9 +102,9 @@ export default function AddDealModal({ open, onClose, onSave }) {
       industry: form.dealIndustry?.trim() || form.industry?.trim() || "-",
       followUp: form.followUpDate || "",
       expectedClose: form.expectedCloseDate || "-",
-      lastActivity: todayStr,
+      lastActivity: editingDeal?.lastActivity || todayStr,
     };
-    onSave(newDeal);
+    onSave(newDeal, !!editingDeal);
     setForm({
       companyName: "",
       contactPerson: "",
@@ -90,7 +132,7 @@ export default function AddDealModal({ open, onClose, onSave }) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">New Deal</h2>
+          <h2 className="text-lg font-bold text-brand-dark">{editingDeal ? "Edit Deal" : "New Deal"}</h2>
           <button type="button" onClick={onClose} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
             <X className="w-5 h-5" strokeWidth={2} />
           </button>

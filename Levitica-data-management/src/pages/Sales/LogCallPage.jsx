@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Bell, Phone, Plus, Pencil, X, Save, Calendar } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Bell, Phone, Plus, Pencil, Trash2, X, Save, Calendar } from "lucide-react";
 
 const inputClass =
   "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
@@ -14,7 +14,7 @@ const getInitials = (name) =>
     .toUpperCase()
     .slice(0, 2);
 
-function LogCallModal({ open, onClose, onSave, onSaveFollowUpTask }) {
+function LogCallModal({ open, onClose, onSave, onSaveFollowUpTask, call: editingCall }) {
   const [form, setForm] = useState({
     date: new Date().toISOString().slice(0, 10),
     subject: "",
@@ -30,6 +30,42 @@ function LogCallModal({ open, onClose, onSave, onSaveFollowUpTask }) {
     followUpType: "Call",
   });
 
+  useEffect(() => {
+    if (!open) return;
+    if (editingCall) {
+      const dur = editingCall.duration === "-" ? "0" : String(editingCall.duration).replace(/\D/g, "") || "0";
+      setForm({
+        date: editingCall.date || new Date().toISOString().slice(0, 10),
+        subject: editingCall.subject || "",
+        company: editingCall.company === "-" ? "" : (editingCall.company || ""),
+        duration: dur,
+        outcome: editingCall.outcome === "-" ? "" : (editingCall.outcome || ""),
+        rep: editingCall.rep || "Vikram Joshi",
+        deal: editingCall.deal === "-" ? "" : (editingCall.deal || ""),
+        contact: "",
+        recording: editingCall.recording === "None" ? "" : (editingCall.recording || ""),
+        notes: editingCall.notes || "",
+        scheduleFollowUp: "",
+        followUpType: "Call",
+      });
+    } else {
+      setForm({
+        date: new Date().toISOString().slice(0, 10),
+        subject: "",
+        company: "",
+        duration: "0",
+        outcome: "",
+        rep: "Vikram Joshi",
+        deal: "",
+        contact: "",
+        recording: "",
+        notes: "",
+        scheduleFollowUp: "",
+        followUpType: "Call",
+      });
+    }
+  }, [open, editingCall]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -39,7 +75,7 @@ function LogCallModal({ open, onClose, onSave, onSaveFollowUpTask }) {
     e.preventDefault();
     if (!form.subject?.trim() || !form.date || !form.notes?.trim()) return;
     const newCall = {
-      id: Date.now(),
+      id: editingCall?.id ?? Date.now(),
       date: form.date,
       subject: form.subject.trim(),
       company: form.company?.trim() || "-",
@@ -51,7 +87,7 @@ function LogCallModal({ open, onClose, onSave, onSaveFollowUpTask }) {
       notes: form.notes?.trim() || "",
       recording: form.recording?.trim() || "None",
     };
-    onSave(newCall);
+    onSave(newCall, !!editingCall);
 
     if (onSaveFollowUpTask && form.scheduleFollowUp) {
       onSaveFollowUpTask({
@@ -92,7 +128,7 @@ function LogCallModal({ open, onClose, onSave, onSaveFollowUpTask }) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">Log Call</h2>
+          <h2 className="text-lg font-bold text-brand-dark">{editingCall ? "Edit Call" : "Log Call"}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -300,6 +336,23 @@ export default function LogCallPage() {
   const [search, setSearch] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState("All Outcomes");
   const [showLogModal, setShowLogModal] = useState(false);
+  const [editingCall, setEditingCall] = useState(null);
+
+  const handleSaveCall = (c, isEdit) => {
+    if (isEdit) {
+      setCalls((prev) => prev.map((x) => (x.id === c.id ? c : x)));
+    } else {
+      setCalls((prev) => [c, ...prev]);
+    }
+    setEditingCall(null);
+    setShowLogModal(false);
+  };
+
+  const handleDeleteCall = (id) => {
+    if (window.confirm("Are you sure you want to delete this call?")) {
+      setCalls((prev) => prev.filter((x) => x.id !== id));
+    }
+  };
 
   const filtered = calls.filter((row) => {
     const matchSearch =
@@ -340,7 +393,7 @@ export default function LogCallPage() {
           </button>
           <button
             type="button"
-            onClick={() => setShowLogModal(true)}
+            onClick={() => { setEditingCall(null); setShowLogModal(true); }}
             className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -351,8 +404,9 @@ export default function LogCallPage() {
 
       <LogCallModal
         open={showLogModal}
-        onClose={() => setShowLogModal(false)}
-        onSave={(c) => setCalls((prev) => [c, ...prev])}
+        onClose={() => { setShowLogModal(false); setEditingCall(null); }}
+        onSave={handleSaveCall}
+        call={editingCall}
       />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
@@ -504,14 +558,24 @@ export default function LogCallPage() {
                     <td className="py-3 px-3 text-body truncate max-w-0" title={row.notes}>{row.notes}</td>
                     <td className="py-3 px-3 text-body truncate" title={row.recording}>{row.recording}</td>
                     <td className="py-3 px-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => {}}
-                        className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
-                        aria-label="Edit call"
-                      >
-                        <Pencil className="w-4 h-4" strokeWidth={2} />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => { setEditingCall(row); setShowLogModal(true); }}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          aria-label="Edit call"
+                        >
+                          <Pencil className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCall(row.id)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                          aria-label="Delete call"
+                        >
+                          <Trash2 className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

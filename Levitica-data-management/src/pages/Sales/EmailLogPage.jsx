@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Bell, Mail, Plus, Pencil, X, Save, Calendar } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Bell, Mail, Plus, Pencil, Trash2, X, Save, Calendar } from "lucide-react";
 
 const inputClass =
   "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
@@ -14,7 +14,7 @@ const getInitials = (name) =>
     .toUpperCase()
     .slice(0, 2);
 
-function LogEmailModal({ open, onClose, onSave }) {
+function LogEmailModal({ open, onClose, onSave, email: editingEmail }) {
   const [form, setForm] = useState({
     date: new Date().toISOString().slice(0, 10),
     subject: "",
@@ -23,6 +23,29 @@ function LogEmailModal({ open, onClose, onSave }) {
     deal: "",
     notes: "",
   });
+
+  useEffect(() => {
+    if (!open) return;
+    if (editingEmail) {
+      setForm({
+        date: editingEmail.date || new Date().toISOString().slice(0, 10),
+        subject: editingEmail.subject || "",
+        company: editingEmail.company === "-" ? "" : (editingEmail.company || ""),
+        rep: editingEmail.rep || "Vikram Joshi",
+        deal: editingEmail.deal === "-" ? "" : (editingEmail.deal || ""),
+        notes: editingEmail.notes || "",
+      });
+    } else {
+      setForm({
+        date: new Date().toISOString().slice(0, 10),
+        subject: "",
+        company: "",
+        rep: "Vikram Joshi",
+        deal: "",
+        notes: "",
+      });
+    }
+  }, [open, editingEmail]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -33,7 +56,7 @@ function LogEmailModal({ open, onClose, onSave }) {
     e.preventDefault();
     if (!form.subject?.trim() || !form.date) return;
     const newEmail = {
-      id: Date.now(),
+      id: editingEmail?.id ?? Date.now(),
       date: form.date,
       subject: form.subject.trim(),
       company: form.company?.trim() || "-",
@@ -42,7 +65,7 @@ function LogEmailModal({ open, onClose, onSave }) {
       deal: form.deal || "-",
       notes: form.notes?.trim() || "",
     };
-    onSave(newEmail);
+    onSave(newEmail, !!editingEmail);
     setForm({
       date: new Date().toISOString().slice(0, 10),
       subject: "",
@@ -61,7 +84,7 @@ function LogEmailModal({ open, onClose, onSave }) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">Log Email</h2>
+          <h2 className="text-lg font-bold text-brand-dark">{editingEmail ? "Edit Email" : "Log Email"}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -184,6 +207,23 @@ export default function EmailLogPage() {
   const [emails, setEmails] = useState(INITIAL_EMAILS);
   const [search, setSearch] = useState("");
   const [showLogModal, setShowLogModal] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(null);
+
+  const handleSaveEmail = (e, isEdit) => {
+    if (isEdit) {
+      setEmails((prev) => prev.map((x) => (x.id === e.id ? e : x)));
+    } else {
+      setEmails((prev) => [e, ...prev]);
+    }
+    setEditingEmail(null);
+    setShowLogModal(false);
+  };
+
+  const handleDeleteEmail = (id) => {
+    if (window.confirm("Are you sure you want to delete this email?")) {
+      setEmails((prev) => prev.filter((x) => x.id !== id));
+    }
+  };
 
   const filtered = emails.filter(
     (row) =>
@@ -223,7 +263,7 @@ export default function EmailLogPage() {
           </button>
           <button
             type="button"
-            onClick={() => setShowLogModal(true)}
+            onClick={() => { setEditingEmail(null); setShowLogModal(true); }}
             className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -234,8 +274,9 @@ export default function EmailLogPage() {
 
       <LogEmailModal
         open={showLogModal}
-        onClose={() => setShowLogModal(false)}
-        onSave={(e) => setEmails((prev) => [e, ...prev])}
+        onClose={() => { setShowLogModal(false); setEditingEmail(null); }}
+        onSave={handleSaveEmail}
+        email={editingEmail}
       />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
@@ -353,15 +394,23 @@ export default function EmailLogPage() {
                     <td className="py-3 px-3 text-body align-top min-w-0">
                       <span className="block truncate" title={row.notes}>{row.notes}</span>
                     </td>
-                    <td className="py-3 px-3 text-center align-top w-16">
-                      <div className="flex justify-center">
+                    <td className="py-3 px-3 text-center align-top">
+                      <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
-                          onClick={() => {}}
+                          onClick={() => { setEditingEmail(row); setShowLogModal(true); }}
                           className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="Edit email"
                         >
                           <Pencil className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteEmail(row.id)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                          aria-label="Delete email"
+                        >
+                          <Trash2 className="w-4 h-4" strokeWidth={2} />
                         </button>
                       </div>
                     </td>

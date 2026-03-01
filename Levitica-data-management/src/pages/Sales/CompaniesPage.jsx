@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Bell, Building2, Plus, Pencil, X, Save } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Bell, Building2, Plus, Pencil, Trash2, X, Save } from "lucide-react";
 
 const inputClass =
   "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
@@ -14,7 +14,7 @@ const getInitials = (name) =>
     .toUpperCase()
     .slice(0, 2);
 
-function AddCompanyModal({ open, onClose, onSave }) {
+function AddCompanyModal({ open, onClose, onSave, company: editingCompany }) {
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -27,6 +27,35 @@ function AddCompanyModal({ open, onClose, onSave }) {
     owner: "Vikram Joshi",
   });
 
+  useEffect(() => {
+    if (!open) return;
+    if (editingCompany) {
+      setForm({
+        name: editingCompany.name || "",
+        description: editingCompany.description || "",
+        industry: editingCompany.industry || "Technology",
+        city: editingCompany.city === "-" ? "" : (editingCompany.city || ""),
+        website: editingCompany.website === "-" ? "" : (editingCompany.website || ""),
+        employees: editingCompany.employees === "-" ? "" : String(editingCompany.employees || ""),
+        annualRevenue: editingCompany.annualRevenue === "-" ? "" : (editingCompany.annualRevenue || ""),
+        status: editingCompany.status || "Prospect",
+        owner: editingCompany.owner || "Vikram Joshi",
+      });
+    } else {
+      setForm({
+        name: "",
+        description: "",
+        industry: "Technology",
+        city: "",
+        website: "",
+        employees: "",
+        annualRevenue: "",
+        status: "Prospect",
+        owner: "Vikram Joshi",
+      });
+    }
+  }, [open, editingCompany]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -36,7 +65,7 @@ function AddCompanyModal({ open, onClose, onSave }) {
     e.preventDefault();
     if (!form.name?.trim()) return;
     const newCompany = {
-      id: Date.now(),
+      id: editingCompany?.id ?? Date.now(),
       name: form.name.trim(),
       description: form.description?.trim() || "",
       industry: form.industry,
@@ -47,10 +76,10 @@ function AddCompanyModal({ open, onClose, onSave }) {
       status: form.status,
       owner: form.owner,
       ownerInitials: getInitials(form.owner),
-      contacts: 0,
-      deals: 0,
+      contacts: editingCompany?.contacts ?? 0,
+      deals: editingCompany?.deals ?? 0,
     };
-    onSave(newCompany);
+    onSave(newCompany, !!editingCompany);
     setForm({
       name: "",
       description: "",
@@ -72,7 +101,7 @@ function AddCompanyModal({ open, onClose, onSave }) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">Add Company</h2>
+          <h2 className="text-lg font-bold text-brand-dark">{editingCompany ? "Edit Company" : "Add Company"}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -250,6 +279,23 @@ export default function CompaniesPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingCompany, setEditingCompany] = useState(null);
+
+  const handleSaveCompany = (c, isEdit) => {
+    if (isEdit) {
+      setCompanies((prev) => prev.map((x) => (x.id === c.id ? c : x)));
+    } else {
+      setCompanies((prev) => [c, ...prev]);
+    }
+    setEditingCompany(null);
+    setShowAddModal(false);
+  };
+
+  const handleDeleteCompany = (id) => {
+    if (window.confirm("Are you sure you want to delete this company?")) {
+      setCompanies((prev) => prev.filter((x) => x.id !== id));
+    }
+  };
 
   const filtered = companies.filter((row) => {
     const matchSearch =
@@ -284,7 +330,7 @@ export default function CompaniesPage() {
           </button>
           <button
             type="button"
-            onClick={() => setShowAddModal(true)}
+            onClick={() => { setEditingCompany(null); setShowAddModal(true); }}
             className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -295,8 +341,9 @@ export default function CompaniesPage() {
 
       <AddCompanyModal
         open={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSave={(c) => setCompanies((prev) => [c, ...prev])}
+        onClose={() => { setShowAddModal(false); setEditingCompany(null); }}
+        onSave={handleSaveCompany}
+        company={editingCompany}
       />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
@@ -400,14 +447,22 @@ export default function CompaniesPage() {
                     <td className="py-3 px-3 text-center text-body tabular-nums align-top">{row.contacts}</td>
                     <td className="py-3 px-3 text-center text-body tabular-nums align-top">{row.deals}</td>
                     <td className="py-3 px-3 text-center align-top">
-                      <div className="flex justify-center">
+                      <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
-                          onClick={() => {}}
+                          onClick={() => { setEditingCompany(row); setShowAddModal(true); }}
                           className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="Edit company"
                         >
                           <Pencil className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCompany(row.id)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                          aria-label="Delete company"
+                        >
+                          <Trash2 className="w-4 h-4" strokeWidth={2} />
                         </button>
                       </div>
                     </td>

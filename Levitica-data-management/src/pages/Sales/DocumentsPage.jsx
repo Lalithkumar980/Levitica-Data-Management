@@ -1,5 +1,5 @@
-import React, { useState, useRef } from "react";
-import { Bell, Folder, Plus, Pencil, Eye, FileText, FileAudio, X, Save, Paperclip, Calendar } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Bell, Folder, Plus, Pencil, Eye, FileText, FileAudio, X, Save, Paperclip, Calendar, Trash2 } from "lucide-react";
 
 const inputClass =
   "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
@@ -11,7 +11,7 @@ function formatFileSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
-function UploadDocumentModal({ open, onClose, onSave }) {
+function UploadDocumentModal({ open, onClose, onSave, document: editingDoc }) {
   const fileInputRef = useRef(null);
   const [form, setForm] = useState({
     fileName: "",
@@ -25,6 +25,35 @@ function UploadDocumentModal({ open, onClose, onSave }) {
   });
   const [selectedFile, setSelectedFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    if (editingDoc) {
+      setForm({
+        fileName: editingDoc.fileName || "",
+        fileType: editingDoc.type || "Proposal",
+        company: editingDoc.company === "-" ? "" : (editingDoc.company || ""),
+        fileSize: editingDoc.size === "-" ? "" : (editingDoc.size || ""),
+        linkedDeal: editingDoc.linkedDeal === "-" ? "" : (editingDoc.linkedDeal || ""),
+        linkedContact: "",
+        uploadDate: editingDoc.date || new Date().toISOString().slice(0, 10),
+        notes: editingDoc.notes || "",
+      });
+      setSelectedFile(null);
+    } else {
+      setForm({
+        fileName: "",
+        fileType: "Proposal",
+        company: "",
+        fileSize: "",
+        linkedDeal: "",
+        linkedContact: "",
+        uploadDate: new Date().toISOString().slice(0, 10),
+        notes: "",
+      });
+      setSelectedFile(null);
+    }
+  }, [open, editingDoc]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -62,19 +91,23 @@ function UploadDocumentModal({ open, onClose, onSave }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.fileName?.trim()) return;
+    const fileUrl = selectedFile
+      ? URL.createObjectURL(selectedFile)
+      : (editingDoc?.fileUrl ?? null);
     const newDoc = {
-      id: Date.now(),
+      id: editingDoc?.id ?? Date.now(),
       fileName: form.fileName.trim(),
       type: form.fileType,
       company: form.company?.trim() || "-",
       linkedDeal: form.linkedDeal || "-",
-      uploadedBy: "Vikram Joshi",
-      uploadedByInitials: "VJ",
+      uploadedBy: editingDoc?.uploadedBy || "Vikram Joshi",
+      uploadedByInitials: editingDoc?.uploadedByInitials || "VJ",
       date: form.uploadDate,
       size: form.fileSize || "-",
       notes: form.notes?.trim() || "",
+      fileUrl,
     };
-    onSave(newDoc);
+    onSave(newDoc, !!editingDoc);
     setForm({
       fileName: "",
       fileType: "Proposal",
@@ -111,7 +144,7 @@ function UploadDocumentModal({ open, onClose, onSave }) {
       <div className="absolute inset-0 bg-black/50" onClick={resetForm} aria-hidden />
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">Upload Document</h2>
+          <h2 className="text-lg font-bold text-brand-dark">{editingDoc ? "Edit Document" : "Upload Document"}</h2>
           <button
             type="button"
             onClick={resetForm}
@@ -267,6 +300,149 @@ function UploadDocumentModal({ open, onClose, onSave }) {
   );
 }
 
+function isPdf(doc) {
+  const name = (doc?.fileName || "").toLowerCase();
+  return name.endsWith(".pdf") || doc?.type === "Proposal" || doc?.type === "Contract";
+}
+function isAudio(doc) {
+  const name = (doc?.fileName || "").toLowerCase();
+  return name.endsWith(".mp3") || name.endsWith(".wav") || doc?.type === "Call Recording";
+}
+function isVideo(doc) {
+  const name = (doc?.fileName || "").toLowerCase();
+  return name.endsWith(".mp4") || name.endsWith(".webm");
+}
+
+function ViewDocumentModal({ open, onClose, document: doc }) {
+  if (!open || !doc) return null;
+  const hasFile = !!doc.fileUrl;
+  const showPdf = hasFile && isPdf(doc);
+  const showAudio = hasFile && isAudio(doc);
+  const showVideo = hasFile && isVideo(doc);
+  const showOpenLink = hasFile && !showPdf && !showAudio && !showVideo;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
+      <div className="relative z-10 w-full max-w-4xl max-h-[90vh] flex flex-col bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center shrink-0">
+              {doc.type === "Call Recording" ? (
+                <FileAudio className="w-5 h-5 text-brand" strokeWidth={2} />
+              ) : (
+                <FileText className="w-5 h-5 text-brand" strokeWidth={2} />
+              )}
+            </span>
+            <div className="min-w-0">
+              <h2 className="font-semibold text-brand-dark truncate" title={doc.fileName}>{doc.fileName}</h2>
+              <p className="text-xs text-gray-500">{doc.type} · {doc.size}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition shrink-0"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" strokeWidth={2} />
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+          {hasFile && (
+            <div className="mb-4">
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Document preview</p>
+              {showPdf && (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden" style={{ minHeight: "400px" }}>
+                  <iframe
+                    src={doc.fileUrl}
+                    title={doc.fileName}
+                    className="w-full h-[70vh] min-h-[400px] border-0"
+                  />
+                </div>
+              )}
+              {showAudio && (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <audio src={doc.fileUrl} controls className="w-full max-w-md" />
+                </div>
+              )}
+              {showVideo && (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
+                  <video src={doc.fileUrl} controls className="w-full max-h-[50vh]" />
+                </div>
+              )}
+              {showOpenLink && (
+                <a
+                  href={doc.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-soft text-brand font-medium text-sm hover:bg-brand-light transition"
+                >
+                  <FileText className="w-4 h-4" strokeWidth={2} />
+                  Open in new tab
+                </a>
+              )}
+            </div>
+          )}
+          {!hasFile && (
+            <p className="text-sm text-gray-500 italic">No file attached. Upload a file when adding or editing this document to view it here.</p>
+          )}
+
+          <div>
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">File name</p>
+            <p className="text-body">{doc.fileName || "-"}</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Type</p>
+              <p className="text-body">{doc.type || "-"}</p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Size</p>
+              <p className="text-body">{doc.size || "-"}</p>
+            </div>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Company</p>
+            <p className="text-body">{doc.company || "-"}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Linked deal</p>
+            <p className="text-body">{doc.linkedDeal || "-"}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Uploaded by</span>
+            <span className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold text-xs shrink-0">
+              {doc.uploadedByInitials || "—"}
+            </span>
+            <span className="text-body">{doc.uploadedBy || "-"}</span>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Date</p>
+            <p className="text-body">{doc.date || "-"}</p>
+          </div>
+          {doc.notes && (
+            <div>
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Notes</p>
+              <p className="text-body text-sm">{doc.notes}</p>
+            </div>
+          )}
+        </div>
+        <div className="px-6 py-4 border-t border-gray-100 flex justify-end shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-xl bg-brand text-white font-medium text-sm hover:opacity-95 transition"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const getInitials = (name) =>
   name
     .trim()
@@ -327,6 +503,29 @@ export default function DocumentsPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("All Types");
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [editingDoc, setEditingDoc] = useState(null);
+  const [viewingDoc, setViewingDoc] = useState(null);
+
+  const handleSaveDocument = (doc, isEdit) => {
+    if (isEdit) {
+      setDocuments((prev) => prev.map((d) => (d.id === doc.id ? doc : d)));
+    } else {
+      setDocuments((prev) => [doc, ...prev]);
+    }
+    setEditingDoc(null);
+    setShowUploadModal(false);
+  };
+
+  const handleDeleteDocument = (id) => {
+    if (window.confirm("Are you sure you want to delete this document?")) {
+      const doc = documents.find((d) => d.id === id);
+      if (doc?.fileUrl && doc.fileUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(doc.fileUrl);
+      }
+      setDocuments((prev) => prev.filter((d) => d.id !== id));
+    }
+  };
 
   const filtered = documents.filter((row) => {
     const matchSearch =
@@ -368,7 +567,7 @@ export default function DocumentsPage() {
           </button>
           <button
             type="button"
-            onClick={() => setShowUploadModal(true)}
+            onClick={() => { setEditingDoc(null); setShowUploadModal(true); }}
             className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -379,8 +578,14 @@ export default function DocumentsPage() {
 
       <UploadDocumentModal
         open={showUploadModal}
-        onClose={() => setShowUploadModal(false)}
-        onSave={(doc) => setDocuments((prev) => [doc, ...prev])}
+        onClose={() => { setShowUploadModal(false); setEditingDoc(null); }}
+        onSave={handleSaveDocument}
+        document={editingDoc}
+      />
+      <ViewDocumentModal
+        open={showViewModal}
+        onClose={() => { setShowViewModal(false); setViewingDoc(null); }}
+        document={viewingDoc}
       />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
@@ -526,7 +731,7 @@ export default function DocumentsPage() {
                       <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
-                          onClick={() => {}}
+                          onClick={() => { setViewingDoc(row); setShowViewModal(true); }}
                           className="inline-flex p-2 rounded-lg text-body hover:bg-gray-100 transition"
                           aria-label="View file"
                         >
@@ -534,11 +739,19 @@ export default function DocumentsPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => {}}
+                          onClick={() => { setEditingDoc(row); setShowUploadModal(true); }}
                           className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="Edit file"
                         >
                           <Pencil className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDocument(row.id)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                          aria-label="Delete file"
+                        >
+                          <Trash2 className="w-4 h-4" strokeWidth={2} />
                         </button>
                       </div>
                     </td>

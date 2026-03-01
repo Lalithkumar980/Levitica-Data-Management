@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Bell,
   Plus,
@@ -10,7 +10,177 @@ import {
   Check,
   X,
   Target,
+  Save,
 } from "lucide-react";
+
+const inputClass = "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
+const labelClass = "block text-xs font-medium text-body uppercase tracking-wider mb-1.5";
+
+function AddEditLeadModal({ open, onClose, onSave, lead: editingLead }) {
+  const [form, setForm] = useState({
+    name: "",
+    subtext: "",
+    company: "",
+    phone: "",
+    email: "",
+    industry: "Technology",
+    city: "",
+    source: "Referral",
+    status: "New",
+    owner: "Vikram Joshi",
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    if (editingLead) {
+      setForm({
+        name: editingLead.name || "",
+        subtext: editingLead.subtext || "",
+        company: editingLead.company || "",
+        phone: editingLead.phone || "",
+        email: editingLead.email || "",
+        industry: editingLead.industry || "Technology",
+        city: editingLead.city || "",
+        source: editingLead.source || "Referral",
+        status: editingLead.status || "New",
+        owner: editingLead.owner || "Vikram Joshi",
+      });
+    } else {
+      setForm({
+        name: "",
+        subtext: "",
+        company: "",
+        phone: "",
+        email: "",
+        industry: "Technology",
+        city: "",
+        source: "Referral",
+        status: "New",
+        owner: "Vikram Joshi",
+      });
+    }
+  }, [open, editingLead]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const getInitials = (name) =>
+    name
+      .trim()
+      .split(/\s+/)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!form.name?.trim()) return;
+    const payload = {
+      id: editingLead?.id ?? Date.now(),
+      name: form.name.trim(),
+      subtext: form.subtext?.trim() || "",
+      company: form.company?.trim() || "",
+      phone: form.phone?.trim() || "",
+      email: form.email?.trim() || "",
+      industry: form.industry || "Technology",
+      city: form.city?.trim() || "",
+      source: form.source || "Referral",
+      status: form.status || "New",
+      owner: form.owner?.trim() || "Vikram Joshi",
+      ownerInitials: getInitials(form.owner || "VJ"),
+      created: editingLead?.created || new Date().toISOString().slice(0, 10),
+    };
+    onSave(payload, !!editingLead);
+    onClose();
+  };
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
+      <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
+        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+          <h2 className="text-lg font-bold text-brand-dark">{editingLead ? "Edit Lead" : "Add Lead"}</h2>
+          <button type="button" onClick={onClose} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
+            <X className="w-5 h-5" strokeWidth={2} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Name *</label>
+              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="Lead name" className={inputClass} required />
+            </div>
+            <div>
+              <label className={labelClass}>Subtext / Notes</label>
+              <input type="text" name="subtext" value={form.subtext} onChange={handleChange} placeholder="e.g. Met at event" className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Company</label>
+              <input type="text" name="company" value={form.company} onChange={handleChange} placeholder="Company" className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Phone</label>
+              <input type="text" name="phone" value={form.phone} onChange={handleChange} placeholder="Phone" className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Email</label>
+              <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="Email" className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Industry</label>
+              <select name="industry" value={form.industry} onChange={handleChange} className={inputClass}>
+                <option>Technology</option>
+                <option>Consulting</option>
+                <option>Retail</option>
+                <option>Other</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>City</label>
+              <input type="text" name="city" value={form.city} onChange={handleChange} placeholder="City" className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Source</label>
+              <select name="source" value={form.source} onChange={handleChange} className={inputClass}>
+                <option>Referral</option>
+                <option>Website</option>
+                <option>Cold Call</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Status</label>
+              <select name="status" value={form.status} onChange={handleChange} className={inputClass}>
+                <option>New</option>
+                <option>Contacted</option>
+                <option>Qualified</option>
+                <option>Converted</option>
+                <option>Disqualified</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Owner</label>
+              <input type="text" name="owner" value={form.owner} onChange={handleChange} placeholder="Owner" className={inputClass} />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-6">
+            <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 text-sm font-medium transition">
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition">
+              <Save className="w-4 h-4" strokeWidth={2} />
+              {editingLead ? "Save changes" : "Add Lead"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 const STATUS_STYLES = {
   New: "bg-blue-100 text-blue-700",
@@ -64,6 +234,8 @@ export default function LeadsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [sourceFilter, setSourceFilter] = useState("All Sources");
+  const [showLeadModal, setShowLeadModal] = useState(false);
+  const [editingLead, setEditingLead] = useState(null);
 
   const filtered = leads.filter((row) => {
     const matchSearch =
@@ -86,7 +258,19 @@ export default function LeadsPage() {
   };
 
   const handleDelete = (id) => {
-    setLeads((prev) => prev.filter((l) => l.id !== id));
+    if (window.confirm("Are you sure you want to delete this lead?")) {
+      setLeads((prev) => prev.filter((l) => l.id !== id));
+    }
+  };
+
+  const handleSaveLead = (payload, isEdit) => {
+    if (isEdit) {
+      setLeads((prev) => prev.map((l) => (l.id === payload.id ? { ...payload, ownerInitials: payload.owner?.trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "VJ" } : l)));
+    } else {
+      setLeads((prev) => [{ ...payload, ownerInitials: payload.owner?.trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "VJ" }, ...prev]);
+    }
+    setEditingLead(null);
+    setShowLeadModal(false);
   };
 
   return (
@@ -111,6 +295,7 @@ export default function LeadsPage() {
           </button>
           <button
             type="button"
+            onClick={() => { setEditingLead(null); setShowLeadModal(true); }}
             className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -118,6 +303,13 @@ export default function LeadsPage() {
           </button>
         </div>
       </header>
+
+      <AddEditLeadModal
+        open={showLeadModal}
+        onClose={() => { setShowLeadModal(false); setEditingLead(null); }}
+        onSave={handleSaveLead}
+        lead={editingLead}
+      />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
         {/* Six stat cards - same style as Finance */}
@@ -296,7 +488,7 @@ export default function LeadsPage() {
                       <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
-                          onClick={() => {}}
+                          onClick={() => { setEditingLead(row); setShowLeadModal(true); }}
                           className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="Edit lead"
                         >

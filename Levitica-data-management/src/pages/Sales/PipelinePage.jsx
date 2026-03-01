@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Bell, Filter, Plus, Pencil, Briefcase, Wallet, Trophy, X, Percent } from "lucide-react";
+import { Bell, Filter, Plus, Pencil, Trash2, Briefcase, Wallet, Trophy, X, Percent } from "lucide-react";
 import AddDealModal from "./AddDealModal";
 
 const STAGE_STYLES = {
@@ -77,6 +77,23 @@ export default function PipelinePage() {
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("All Stages");
   const [showAddDealModal, setShowAddDealModal] = useState(false);
+  const [editingDeal, setEditingDeal] = useState(null);
+
+  const handleSaveDeal = (payload, isEdit) => {
+    if (isEdit) {
+      setDeals((prev) => prev.map((d) => (d.id === payload.id ? payload : d)));
+    } else {
+      setDeals((prev) => [payload, ...prev]);
+    }
+    setEditingDeal(null);
+    setShowAddDealModal(false);
+  };
+
+  const handleDeleteDeal = (id) => {
+    if (window.confirm("Are you sure you want to delete this deal?")) {
+      setDeals((prev) => prev.filter((d) => d.id !== id));
+    }
+  };
 
   const filtered = deals.filter((row) => {
     const matchSearch =
@@ -110,7 +127,7 @@ export default function PipelinePage() {
           </button>
           <button
             type="button"
-            onClick={() => setShowAddDealModal(true)}
+            onClick={() => { setEditingDeal(null); setShowAddDealModal(true); }}
             className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -121,8 +138,9 @@ export default function PipelinePage() {
 
       <AddDealModal
         open={showAddDealModal}
-        onClose={() => setShowAddDealModal(false)}
-        onSave={(deal) => setDeals((prev) => [deal, ...prev])}
+        onClose={() => { setShowAddDealModal(false); setEditingDeal(null); }}
+        onSave={handleSaveDeal}
+        deal={editingDeal}
       />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
@@ -300,14 +318,24 @@ export default function PipelinePage() {
                     <td className="py-3 px-3 text-center text-body tabular-nums whitespace-nowrap">{row.expectedClose}</td>
                     <td className="py-3 px-3 text-center text-body tabular-nums whitespace-nowrap">{row.lastActivity}</td>
                     <td className="py-3 px-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => {}}
-                        className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
-                        aria-label="Edit deal"
-                      >
-                        <Pencil className="w-4 h-4" strokeWidth={2} />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => { setEditingDeal(row); setShowAddDealModal(true); }}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          aria-label="Edit deal"
+                        >
+                          <Pencil className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDeal(row.id)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                          aria-label="Delete deal"
+                        >
+                          <Trash2 className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

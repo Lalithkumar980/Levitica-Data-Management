@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Bell, Users, UserCheck, UserPlus, Target, Plus, Pencil, X, Save, Calendar } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Bell, Users, UserCheck, UserPlus, Target, Plus, Pencil, Trash2, X, Save, Calendar } from "lucide-react";
 
 const inputClass = "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
 const labelClass = "block text-xs font-medium text-body uppercase tracking-wider mb-1.5";
@@ -13,7 +13,7 @@ const getInitials = (name) =>
     .toUpperCase()
     .slice(0, 2);
 
-function AddContactModal({ open, onClose, onSave }) {
+function AddContactModal({ open, onClose, onSave, contact: editingContact }) {
   const today = new Date();
   const todayStr = `${String(today.getDate()).padStart(2, "0")}-${String(today.getMonth() + 1).padStart(2, "0")}-${today.getFullYear()}`;
 
@@ -32,6 +32,41 @@ function AddContactModal({ open, onClose, onSave }) {
     lastContactDate: "",
   });
 
+  useEffect(() => {
+    if (!open) return;
+    if (editingContact) {
+      setForm({
+        fullName: editingContact.name || "",
+        jobTitle: editingContact.title === "-" ? "" : (editingContact.title || ""),
+        phone: editingContact.phone === "-" ? "" : (editingContact.phone || ""),
+        status: editingContact.status || "Lead",
+        owner: editingContact.owner || "Arjun Sharma",
+        tags: Array.isArray(editingContact.tags) ? editingContact.tags.join(", ") : "",
+        notes: "",
+        company: editingContact.company === "-" ? "" : (editingContact.company || ""),
+        email: editingContact.email === "-" ? "" : (editingContact.email || ""),
+        city: editingContact.city === "-" ? "" : (editingContact.city || ""),
+        source: editingContact.source === "-" ? "" : (editingContact.source || ""),
+        lastContactDate: editingContact.lastContact === "-" ? "" : (editingContact.lastContact || ""),
+      });
+    } else {
+      setForm({
+        fullName: "",
+        jobTitle: "",
+        phone: "",
+        status: "Lead",
+        owner: "Arjun Sharma",
+        tags: "",
+        notes: "",
+        company: "",
+        email: "",
+        city: "",
+        source: "",
+        lastContactDate: "",
+      });
+    }
+  }, [open, editingContact]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -44,7 +79,7 @@ function AddContactModal({ open, onClose, onSave }) {
       ? form.tags.split(",").map((t) => t.trim()).filter(Boolean)
       : [];
     const newContact = {
-      id: Date.now(),
+      id: editingContact?.id ?? Date.now(),
       name: form.fullName.trim(),
       initials: getInitials(form.fullName),
       company: form.company?.trim() || "-",
@@ -59,7 +94,7 @@ function AddContactModal({ open, onClose, onSave }) {
       lastContact: form.lastContactDate || "-",
       tags: tagList.length ? tagList : [],
     };
-    onSave(newContact);
+    onSave(newContact, !!editingContact);
     setForm({
       fullName: "",
       jobTitle: "",
@@ -84,7 +119,7 @@ function AddContactModal({ open, onClose, onSave }) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">New Contact</h2>
+          <h2 className="text-lg font-bold text-brand-dark">{editingContact ? "Edit Contact" : "New Contact"}</h2>
           <button type="button" onClick={onClose} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
             <X className="w-5 h-5" strokeWidth={2} />
           </button>
@@ -227,6 +262,23 @@ export default function ContactsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [editingContact, setEditingContact] = useState(null);
+
+  const handleSaveContact = (c, isEdit) => {
+    if (isEdit) {
+      setContacts((prev) => prev.map((x) => (x.id === c.id ? c : x)));
+    } else {
+      setContacts((prev) => [c, ...prev]);
+    }
+    setEditingContact(null);
+    setShowAddContactModal(false);
+  };
+
+  const handleDeleteContact = (id) => {
+    if (window.confirm("Are you sure you want to delete this contact?")) {
+      setContacts((prev) => prev.filter((x) => x.id !== id));
+    }
+  };
 
   const filtered = contacts.filter((row) => {
     const matchSearch =
@@ -259,7 +311,7 @@ export default function ContactsPage() {
           </button>
           <button
             type="button"
-            onClick={() => setShowAddContactModal(true)}
+            onClick={() => { setEditingContact(null); setShowAddContactModal(true); }}
             className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -270,8 +322,9 @@ export default function ContactsPage() {
 
       <AddContactModal
         open={showAddContactModal}
-        onClose={() => setShowAddContactModal(false)}
-        onSave={(c) => setContacts((prev) => [c, ...prev])}
+        onClose={() => { setShowAddContactModal(false); setEditingContact(null); }}
+        onSave={handleSaveContact}
+        contact={editingContact}
       />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
@@ -420,14 +473,24 @@ export default function ContactsPage() {
                       </div>
                     </td>
                     <td className="py-3 px-3 text-center">
-                      <button
-                        type="button"
-                        onClick={() => {}}
-                        className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
-                        aria-label="Edit contact"
-                      >
-                        <Pencil className="w-4 h-4" strokeWidth={2} />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => { setEditingContact(row); setShowAddContactModal(true); }}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          aria-label="Edit contact"
+                        >
+                          <Pencil className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteContact(row.id)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                          aria-label="Delete contact"
+                        >
+                          <Trash2 className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

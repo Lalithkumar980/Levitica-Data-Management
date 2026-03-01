@@ -63,7 +63,7 @@ export default function SalesOverview() {
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
         {/* Six metric cards - same style as Finance */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <div className="group rounded-2xl bg-gradient-to-br from-blue-50 to-white border border-blue-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>

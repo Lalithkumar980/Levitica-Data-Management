@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Bell, ClipboardList, Plus, Pencil, X, Save, CheckSquare, ListTodo, Calendar, Phone, Mail, AlertCircle } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Bell, ClipboardList, Plus, Pencil, Trash2, X, Save, CheckSquare, ListTodo, Calendar, Phone, Mail, AlertCircle } from "lucide-react";
 
 const inputClass =
   "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
@@ -14,7 +14,7 @@ const getInitials = (name) =>
     .toUpperCase()
     .slice(0, 2);
 
-function LogActivityModal({ open, onClose, onSave, onSaveFollowUpTask }) {
+function LogActivityModal({ open, onClose, onSave, onSaveFollowUpTask, activity: editingActivity }) {
   const [form, setForm] = useState({
     type: "Call",
     date: new Date().toISOString().slice(0, 10),
@@ -31,6 +31,44 @@ function LogActivityModal({ open, onClose, onSave, onSaveFollowUpTask }) {
     followUpType: "Call",
   });
 
+  useEffect(() => {
+    if (!open) return;
+    if (editingActivity) {
+      const dur = editingActivity.duration === "-" ? "0" : String(editingActivity.duration).replace(/\D/g, "") || "0";
+      setForm({
+        type: editingActivity.type || "Call",
+        date: editingActivity.date || new Date().toISOString().slice(0, 10),
+        subject: editingActivity.subject || "",
+        company: editingActivity.company === "-" ? "" : (editingActivity.company || ""),
+        duration: dur,
+        outcome: editingActivity.outcome === "-" ? "" : (editingActivity.outcome || ""),
+        rep: editingActivity.rep || "Vikram Joshi",
+        deal: editingActivity.dealLinked === "-" ? "" : (editingActivity.dealLinked || ""),
+        contact: "",
+        recording: editingActivity.recording === "-" ? "" : (editingActivity.recording || ""),
+        notes: editingActivity.description || "",
+        scheduleFollowUp: "",
+        followUpType: "Call",
+      });
+    } else {
+      setForm({
+        type: "Call",
+        date: new Date().toISOString().slice(0, 10),
+        subject: "",
+        company: "",
+        duration: "0",
+        outcome: "",
+        rep: "Vikram Joshi",
+        deal: "",
+        contact: "",
+        recording: "",
+        notes: "",
+        scheduleFollowUp: "",
+        followUpType: "Call",
+      });
+    }
+  }, [open, editingActivity]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -40,7 +78,7 @@ function LogActivityModal({ open, onClose, onSave, onSaveFollowUpTask }) {
     e.preventDefault();
     if (!form.subject?.trim() || !form.date || !form.notes?.trim()) return;
     const newActivity = {
-      id: Date.now(),
+      id: editingActivity?.id ?? Date.now(),
       type: form.type,
       subject: form.subject.trim(),
       description: form.notes?.trim() || "",
@@ -53,9 +91,9 @@ function LogActivityModal({ open, onClose, onSave, onSaveFollowUpTask }) {
       date: form.date,
       recording: form.recording?.trim() || "-",
     };
-    onSave(newActivity);
+    onSave(newActivity, !!editingActivity);
 
-    if (onSaveFollowUpTask && form.scheduleFollowUp) {
+    if (!editingActivity && onSaveFollowUpTask && form.scheduleFollowUp) {
       const followUpTask = {
         id: Date.now() + 1,
         type: form.followUpType,
@@ -96,7 +134,7 @@ function LogActivityModal({ open, onClose, onSave, onSaveFollowUpTask }) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">Log Activity</h2>
+          <h2 className="text-lg font-bold text-brand-dark">{editingActivity ? "Edit Activity" : "Log Activity"}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -295,7 +333,7 @@ function LogActivityModal({ open, onClose, onSave, onSaveFollowUpTask }) {
   );
 }
 
-function AddTaskModal({ open, onClose, onSave }) {
+function AddTaskModal({ open, onClose, onSave, task: editingTask }) {
   const [form, setForm] = useState({
     type: "Call",
     dueDate: new Date().toISOString().slice(0, 10),
@@ -307,6 +345,33 @@ function AddTaskModal({ open, onClose, onSave }) {
     notes: "",
   });
 
+  useEffect(() => {
+    if (!open) return;
+    if (editingTask) {
+      setForm({
+        type: editingTask.type || "Call",
+        dueDate: editingTask.dueDate || new Date().toISOString().slice(0, 10),
+        subject: editingTask.subject || "",
+        company: editingTask.company === "-" ? "" : (editingTask.company || ""),
+        priority: editingTask.priority || "Medium",
+        rep: editingTask.rep || "Vikram Joshi",
+        deal: editingTask.deal === "-" ? "" : (editingTask.deal || ""),
+        notes: "",
+      });
+    } else {
+      setForm({
+        type: "Call",
+        dueDate: new Date().toISOString().slice(0, 10),
+        subject: "",
+        company: "",
+        priority: "Medium",
+        rep: "Vikram Joshi",
+        deal: "",
+        notes: "",
+      });
+    }
+  }, [open, editingTask]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -316,18 +381,18 @@ function AddTaskModal({ open, onClose, onSave }) {
     e.preventDefault();
     if (!form.subject?.trim() || !form.dueDate) return;
     const newTask = {
-      id: Date.now(),
+      id: editingTask?.id ?? Date.now(),
       type: form.type,
       subject: form.subject.trim(),
       company: form.company?.trim() || "-",
       dueDate: form.dueDate,
       priority: form.priority,
-      status: "Pending",
+      status: editingTask?.status ?? "Pending",
       rep: form.rep,
       repInitials: getInitials(form.rep),
       deal: form.deal || "-",
     };
-    onSave(newTask);
+    onSave(newTask, !!editingTask);
     setForm({
       type: "Call",
       dueDate: new Date().toISOString().slice(0, 10),
@@ -348,7 +413,7 @@ function AddTaskModal({ open, onClose, onSave }) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">Add Follow-up Task</h2>
+          <h2 className="text-lg font-bold text-brand-dark">{editingTask ? "Edit Task" : "Add Follow-up Task"}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -593,6 +658,40 @@ export default function ActivityLogPage() {
   const [activeTab, setActiveTab] = useState("log");
   const [showLogModal, setShowLogModal] = useState(false);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [editingActivity, setEditingActivity] = useState(null);
+  const [editingTask, setEditingTask] = useState(null);
+
+  const handleSaveActivity = (payload, isEdit) => {
+    if (isEdit) {
+      setActivities((prev) => prev.map((a) => (a.id === payload.id ? payload : a)));
+    } else {
+      setActivities((prev) => [payload, ...prev]);
+    }
+    setEditingActivity(null);
+    setShowLogModal(false);
+  };
+
+  const handleDeleteActivity = (id) => {
+    if (window.confirm("Are you sure you want to delete this activity?")) {
+      setActivities((prev) => prev.filter((a) => a.id !== id));
+    }
+  };
+
+  const handleSaveTask = (payload, isEdit) => {
+    if (isEdit) {
+      setTasks((prev) => prev.map((t) => (t.id === payload.id ? payload : t)));
+    } else {
+      setTasks((prev) => [payload, ...prev]);
+    }
+    setEditingTask(null);
+    setShowAddTaskModal(false);
+  };
+
+  const handleDeleteTask = (id) => {
+    if (window.confirm("Are you sure you want to delete this task?")) {
+      setTasks((prev) => prev.filter((t) => t.id !== id));
+    }
+  };
 
   const filtered = activities.filter((row) => {
     const matchSearch =
@@ -650,7 +749,7 @@ export default function ActivityLogPage() {
           </button>
           <button
             type="button"
-            onClick={() => setShowLogModal(true)}
+            onClick={() => { setEditingActivity(null); setShowLogModal(true); }}
             className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -661,14 +760,16 @@ export default function ActivityLogPage() {
 
       <LogActivityModal
         open={showLogModal}
-        onClose={() => setShowLogModal(false)}
-        onSave={(a) => setActivities((prev) => [a, ...prev])}
+        onClose={() => { setShowLogModal(false); setEditingActivity(null); }}
+        onSave={handleSaveActivity}
         onSaveFollowUpTask={(t) => setTasks((prev) => [t, ...prev])}
+        activity={editingActivity}
       />
       <AddTaskModal
         open={showAddTaskModal}
-        onClose={() => setShowAddTaskModal(false)}
-        onSave={(t) => setTasks((prev) => [t, ...prev])}
+        onClose={() => { setShowAddTaskModal(false); setEditingTask(null); }}
+        onSave={handleSaveTask}
+        task={editingTask}
       />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
@@ -828,7 +929,7 @@ export default function ActivityLogPage() {
                   </select>
                   <button
                     type="button"
-                    onClick={() => setShowAddTaskModal(true)}
+                    onClick={() => { setEditingTask(null); setShowAddTaskModal(true); }}
                     className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
                   >
                     <Plus className="w-4 h-4" strokeWidth={2} />
@@ -893,14 +994,24 @@ export default function ActivityLogPage() {
                       <td className="py-3 px-3 text-center text-body tabular-nums whitespace-nowrap">{row.date}</td>
                       <td className="py-3 px-3 text-body truncate" title={row.recording}>{row.recording}</td>
                       <td className="py-3 px-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => {}}
-                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
-                          aria-label="Edit activity"
-                        >
-                          <Pencil className="w-4 h-4" strokeWidth={2} />
-                        </button>
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => { setEditingActivity(row); setShowLogModal(true); }}
+                            className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                            aria-label="Edit activity"
+                          >
+                            <Pencil className="w-4 h-4" strokeWidth={2} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteActivity(row.id)}
+                            className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                            aria-label="Delete activity"
+                          >
+                            <Trash2 className="w-4 h-4" strokeWidth={2} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -977,11 +1088,19 @@ export default function ActivityLogPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => {}}
+                            onClick={() => { setEditingTask(row); setShowAddTaskModal(true); }}
                             className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                             aria-label="Edit task"
                           >
                             <Pencil className="w-4 h-4" strokeWidth={2} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTask(row.id)}
+                            className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                            aria-label="Delete task"
+                          >
+                            <Trash2 className="w-4 h-4" strokeWidth={2} />
                           </button>
                         </div>
                       </td>
