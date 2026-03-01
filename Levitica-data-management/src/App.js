@@ -38,6 +38,7 @@ import AdminDocumentsPage from "./pages/Admin/AdminDocumentsPage";
 import AdminBulkUploadPage from "./pages/Admin/AdminBulkUploadPage";
 import AdminReportsPage from "./pages/Admin/AdminReportsPage";
 import AdminUsersRolesPage from "./pages/Admin/AdminUsersRolesPage";
+// Add User is now a modal on Users & Roles page (AdminUsersRolesPage)
 
 function SalesPlaceholder({ title }) {
   return (

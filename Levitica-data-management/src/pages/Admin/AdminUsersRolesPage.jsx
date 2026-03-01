@@ -1,14 +1,36 @@
-import React from "react";
-import { Bell, Check, X, Users, User } from "lucide-react";
+import React, { useState } from "react";
+import { toast } from "react-toastify";
+import { Bell, Plus, Check, X, Users, User, Save, Eye, EyeOff, Pencil } from "lucide-react";
 
-const USERS = [
-  { initials: "AK", name: "Arjun Kapoor", email: "admin@salespulse.com", role: "Admin", roleClass: "bg-blue-100 text-blue-700", dept: "Management", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -6"], viewAll: true, delete: true, export: true, admin: true },
-  { initials: "PN", name: "Priya Nair", email: "manager@salespulse.com", role: "Sales Manager", roleClass: "bg-emerald-100 text-emerald-700", dept: "Sales Management", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -7"], viewAll: true, delete: false, export: true, admin: false },
-  { initials: "VJ", name: "Vikram Joshi", email: "rep1@salespulse.com", role: "Sales Rep", roleClass: "bg-amber-100 text-amber-700", dept: "Sales", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -4"], viewAll: false, delete: false, export: true, admin: false },
-  { initials: "MR", name: "Meena Reddy", email: "rep2@salespulse.com", role: "Sales Rep", roleClass: "bg-amber-100 text-amber-700", dept: "Sales", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -4"], viewAll: false, delete: false, export: true, admin: false },
-  { initials: "AD", name: "Aditya Kumar", email: "rep3@salespulse.com", role: "Sales Rep", roleClass: "bg-amber-100 text-amber-700", dept: "Sales", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -4"], viewAll: false, delete: false, export: true, admin: false },
-  { initials: "KS", name: "Kavya Shah", email: "rep4@salespulse.com", role: "Sales Rep", roleClass: "bg-amber-100 text-amber-700", dept: "Sales", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -4"], viewAll: false, delete: false, export: true, admin: false },
+const ROLE_CLASS = {
+  Admin: "bg-blue-100 text-blue-700",
+  "Sales Manager": "bg-emerald-100 text-emerald-700",
+  "Sales Rep": "bg-amber-100 text-amber-700",
+};
+const ROLE_DEFAULTS = {
+  Admin: { viewAll: true, delete: true, export: true, admin: true, modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -6"] },
+  "Sales Manager": { viewAll: true, delete: false, export: true, admin: false, modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -7"] },
+  "Sales Rep": { viewAll: false, delete: false, export: true, admin: false, modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -4"] },
+};
+const ROLES = ["Admin", "Sales Manager", "Sales Rep"];
+const DEPARTMENTS = ["Management", "Sales Management", "Sales"];
+
+const INITIAL_USERS = [
+  { id: 1, initials: "AK", name: "Arjun Kapoor", email: "admin@salespulse.com", role: "Admin", roleClass: "bg-blue-100 text-blue-700", dept: "Management", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -6"], viewAll: true, delete: true, export: true, admin: true },
+  { id: 2, initials: "PN", name: "Priya Nair", email: "manager@salespulse.com", role: "Sales Manager", roleClass: "bg-emerald-100 text-emerald-700", dept: "Sales Management", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -7"], viewAll: true, delete: false, export: true, admin: false },
+  { id: 3, initials: "VJ", name: "Vikram Joshi", email: "rep1@salespulse.com", role: "Sales Rep", roleClass: "bg-amber-100 text-amber-700", dept: "Sales", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -4"], viewAll: false, delete: false, export: true, admin: false },
+  { id: 4, initials: "MR", name: "Meena Reddy", email: "rep2@salespulse.com", role: "Sales Rep", roleClass: "bg-amber-100 text-amber-700", dept: "Sales", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -4"], viewAll: false, delete: false, export: true, admin: false },
+  { id: 5, initials: "AD", name: "Aditya Kumar", email: "rep3@salespulse.com", role: "Sales Rep", roleClass: "bg-amber-100 text-amber-700", dept: "Sales", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -4"], viewAll: false, delete: false, export: true, admin: false },
+  { id: 6, initials: "KS", name: "Kavya Shah", email: "rep4@salespulse.com", role: "Sales Rep", roleClass: "bg-amber-100 text-amber-700", dept: "Sales", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -4"], viewAll: false, delete: false, export: true, admin: false },
 ];
+
+const initialUserForm = {
+  fullName: "",
+  email: "",
+  role: "Sales Rep",
+  department: "Sales",
+  password: "",
+};
 
 const ROLE_MATRIX = [
   { permission: "View All Records", admin: true, salesManager: true, salesRep: false },
@@ -20,7 +42,114 @@ const ROLE_MATRIX = [
   { permission: "View Reports", admin: true, salesManager: true, salesRep: true },
 ];
 
+function getInitials(fullName) {
+  const parts = (fullName || "").trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (parts[0] || "").slice(0, 2).toUpperCase() || "—";
+}
+
 export default function AdminUsersRolesPage() {
+  const [users, setUsers] = useState(INITIAL_USERS);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [userForm, setUserForm] = useState(initialUserForm);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [detailsEditMode, setDetailsEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", email: "", role: "Sales Rep", department: "Sales", password: "" });
+
+  const handleUserFormChange = (field, value) => {
+    setUserForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveUser = () => {
+    const { fullName, email, role, department, password } = userForm;
+    if (!fullName.trim() || !email.trim()) {
+      toast.error("Please fill in required fields (Name and Email).");
+      return;
+    }
+    if (!password.trim()) {
+      toast.error("Admin must set an initial password for the user.");
+      return;
+    }
+    const defaults = ROLE_DEFAULTS[role] || ROLE_DEFAULTS["Sales Rep"];
+    const newId = users.length ? Math.max(...users.map((u) => u.id)) + 1 : 1;
+    const newUser = {
+      id: newId,
+      initials: getInitials(fullName),
+      name: fullName.trim(),
+      email: email.trim(),
+      role,
+      roleClass: ROLE_CLASS[role] || ROLE_CLASS["Sales Rep"],
+      dept: department,
+      modules: defaults.modules,
+      viewAll: defaults.viewAll,
+      delete: defaults.delete,
+      export: defaults.export,
+      admin: defaults.admin,
+      password: password.trim(),
+    };
+    setUsers((prev) => [newUser, ...prev]);
+    setUserForm(initialUserForm);
+    setAddModalOpen(false);
+    toast.success("User added successfully.");
+  };
+
+  const closeAddModal = () => {
+    setAddModalOpen(false);
+    setUserForm(initialUserForm);
+  };
+
+  const handleOpenEdit = () => {
+    if (!selectedUser) return;
+    setEditForm({
+      name: selectedUser.name,
+      email: selectedUser.email,
+      role: selectedUser.role,
+      department: selectedUser.dept,
+      password: "",
+    });
+    setDetailsEditMode(true);
+  };
+
+  const handleEditFormChange = (field, value) => {
+    setEditForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveEdit = () => {
+    if (!selectedUser) return;
+    const { name, email, role, department, password } = editForm;
+    if (!name.trim() || !email.trim()) {
+      toast.error("Name and Email are required.");
+      return;
+    }
+    const defaults = ROLE_DEFAULTS[role] || ROLE_DEFAULTS["Sales Rep"];
+    const updatedUser = {
+      ...selectedUser,
+      name: name.trim(),
+      email: email.trim(),
+      role,
+      roleClass: ROLE_CLASS[role] || ROLE_CLASS["Sales Rep"],
+      dept: department,
+      initials: getInitials(name),
+      modules: defaults.modules,
+      viewAll: defaults.viewAll,
+      delete: defaults.delete,
+      export: defaults.export,
+      admin: defaults.admin,
+      ...(password.trim() ? { password: password.trim() } : {}),
+    };
+    setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? updatedUser : u)));
+    setSelectedUser(updatedUser);
+    setDetailsEditMode(false);
+    setEditForm({ name: "", email: "", role: "Sales Rep", department: "Sales", password: "" });
+    toast.success("User updated successfully.");
+  };
+
+  const handleCancelEdit = () => {
+    setDetailsEditMode(false);
+    setEditForm({ name: "", email: "", role: "Sales Rep", department: "Sales", password: "" });
+  };
+
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
@@ -41,6 +170,14 @@ export default function AdminUsersRolesPage() {
           >
             <Bell className="w-5 h-5" strokeWidth={2} />
           </button>
+          <button
+            type="button"
+            onClick={() => setAddModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+          >
+            <Plus className="w-4 h-4" strokeWidth={2} />
+            Add User
+          </button>
         </div>
       </header>
 
@@ -53,7 +190,7 @@ export default function AdminUsersRolesPage() {
             </div>
             <div>
               <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Total Users</p>
-              <p className="text-xl font-bold text-brand-dark">6</p>
+              <p className="text-xl font-bold text-brand-dark">{users.length}</p>
             </div>
           </div>
           <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm flex items-center gap-3">
@@ -62,7 +199,7 @@ export default function AdminUsersRolesPage() {
             </div>
             <div>
               <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Sales Reps</p>
-              <p className="text-xl font-bold text-brand-dark">4</p>
+              <p className="text-xl font-bold text-brand-dark">{users.filter((u) => u.role === "Sales Rep").length}</p>
             </div>
           </div>
           <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm flex items-center gap-3">
@@ -71,7 +208,7 @@ export default function AdminUsersRolesPage() {
             </div>
             <div>
               <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Managers</p>
-              <p className="text-xl font-bold text-brand-dark">1</p>
+              <p className="text-xl font-bold text-brand-dark">{users.filter((u) => u.role === "Sales Manager").length}</p>
             </div>
           </div>
           <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm flex items-center gap-3">
@@ -80,7 +217,7 @@ export default function AdminUsersRolesPage() {
             </div>
             <div>
               <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Admins</p>
-              <p className="text-xl font-bold text-brand-dark">1</p>
+              <p className="text-xl font-bold text-brand-dark">{users.filter((u) => u.role === "Admin").length}</p>
             </div>
           </div>
         </div>
@@ -104,8 +241,12 @@ export default function AdminUsersRolesPage() {
                 </tr>
               </thead>
               <tbody>
-                {USERS.map((row, idx) => (
-                  <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
+                {users.map((row, idx) => (
+                  <tr
+                    key={row.id ?? idx}
+                    onClick={() => { setSelectedUser(row); setShowPassword(false); setDetailsEditMode(false); }}
+                    className="border-b border-gray-50 hover:bg-gray-50/50 transition cursor-pointer"
+                  >
                     <td className="py-3 px-4 text-body">{idx + 1}</td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
@@ -200,6 +341,310 @@ export default function AdminUsersRolesPage() {
           </div>
         </div>
       </div>
+
+      {/* Add User Modal */}
+      {addModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+              <h2 className="text-lg font-bold text-brand-dark">Add User</h2>
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-4 border-b border-brand/30 pb-2">User Details</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Full name *</label>
+                  <input
+                    type="text"
+                    value={userForm.fullName}
+                    onChange={(e) => handleUserFormChange("fullName", e.target.value)}
+                    placeholder="e.g. John Doe"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Email *</label>
+                  <input
+                    type="email"
+                    value={userForm.email}
+                    onChange={(e) => handleUserFormChange("email", e.target.value)}
+                    placeholder="user@company.com"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Role</label>
+                  <select
+                    value={userForm.role}
+                    onChange={(e) => handleUserFormChange("role", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {ROLES.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Department</label>
+                  <select
+                    value={userForm.department}
+                    onChange={(e) => handleUserFormChange("department", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {DEPARTMENTS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Password *</label>
+                  <input
+                    type="password"
+                    value={userForm.password}
+                    onChange={(e) => handleUserFormChange("password", e.target.value)}
+                    placeholder="Admin creates initial password for the user"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-white">
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveUser}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+              >
+                <Save className="w-4 h-4" strokeWidth={2} />
+                Save User
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Details Modal */}
+      {selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => { setSelectedUser(null); setDetailsEditMode(false); }} aria-hidden />
+          <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+              <h2 className="text-lg font-bold text-brand-dark">{detailsEditMode ? "Edit User" : "User Details"}</h2>
+              <button
+                type="button"
+                onClick={() => { setSelectedUser(null); setDetailsEditMode(false); }}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              {detailsEditMode ? (
+                /* Edit form */
+                <div className="space-y-4">
+                  <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-3 border-b border-brand/30 pb-2">Profile</p>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Full name *</label>
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={(e) => handleEditFormChange("name", e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Email *</label>
+                      <input
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => handleEditFormChange("email", e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Role</label>
+                      <select
+                        value={editForm.role}
+                        onChange={(e) => handleEditFormChange("role", e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                      >
+                        {ROLES.map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Department</label>
+                      <select
+                        value={editForm.department}
+                        onChange={(e) => handleEditFormChange("department", e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                      >
+                        {DEPARTMENTS.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">New password (optional)</label>
+                      <input
+                        type="password"
+                        value={editForm.password}
+                        onChange={(e) => handleEditFormChange("password", e.target.value)}
+                        placeholder="Leave blank to keep current password"
+                        className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* View mode */
+                <div className="space-y-5">
+                  <div className="flex items-center gap-3">
+                    <span className="w-12 h-12 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-lg shrink-0">
+                      {selectedUser.initials}
+                    </span>
+                    <div>
+                      <p className="font-semibold text-brand-dark text-lg">{selectedUser.name}</p>
+                      <p className="text-sm text-body">{selectedUser.email}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-3 border-b border-brand/30 pb-2">Profile</p>
+                    <dl className="space-y-3 text-sm">
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-body">Role</dt>
+                        <dd>
+                          <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedUser.roleClass}`}>
+                            {selectedUser.role}
+                          </span>
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-body">Department</dt>
+                        <dd className="font-medium text-brand-dark">{selectedUser.dept}</dd>
+                      </div>
+                      <div className="flex justify-between gap-4 items-center">
+                        <dt className="text-body">Password</dt>
+                        <dd className="flex items-center gap-2">
+                          <span className="text-body font-mono">
+                            {showPassword ? (selectedUser.password || "Not set") : "••••••••"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword((p) => !p)}
+                            className="text-brand hover:text-brand-dark text-xs font-medium flex items-center gap-1"
+                          >
+                            {showPassword ? (
+                              <>
+                                <EyeOff className="w-4 h-4" strokeWidth={2} />
+                                Hide
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="w-4 h-4" strokeWidth={2} />
+                                Show
+                              </>
+                            )}
+                          </button>
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-2">Modules</p>
+                    <ul className="flex flex-wrap gap-1.5">
+                      {selectedUser.modules.map((m, i) => (
+                        <li key={i} className="inline-flex items-center gap-1 text-xs text-body bg-gray-50 px-2 py-1 rounded-lg">
+                          <Check className="w-3.5 h-3.5 text-success shrink-0" strokeWidth={2.5} />
+                          {m}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-2">Permissions</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs">
+                      <span className={selectedUser.viewAll ? "text-success flex items-center gap-1" : "text-gray-400 flex items-center gap-1"}>
+                        {selectedUser.viewAll ? <Check className="w-4 h-4" strokeWidth={2.5} /> : <X className="w-4 h-4" strokeWidth={2.5} />}
+                        View All
+                      </span>
+                      <span className={selectedUser.delete ? "text-success flex items-center gap-1" : "text-gray-400 flex items-center gap-1"}>
+                        {selectedUser.delete ? <Check className="w-4 h-4" strokeWidth={2.5} /> : <X className="w-4 h-4" strokeWidth={2.5} />}
+                        Delete
+                      </span>
+                      <span className={selectedUser.export ? "text-success flex items-center gap-1" : "text-gray-400 flex items-center gap-1"}>
+                        {selectedUser.export ? <Check className="w-4 h-4" strokeWidth={2.5} /> : <X className="w-4 h-4" strokeWidth={2.5} />}
+                        Export
+                      </span>
+                      <span className={selectedUser.admin ? "text-success flex items-center gap-1" : "text-gray-400 flex items-center gap-1"}>
+                        {selectedUser.admin ? <Check className="w-4 h-4" strokeWidth={2.5} /> : <X className="w-4 h-4" strokeWidth={2.5} />}
+                        Admin
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="sticky bottom-0 flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-white">
+              {detailsEditMode ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveEdit}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+                  >
+                    <Save className="w-4 h-4" strokeWidth={2} />
+                    Save
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedUser(null); setDetailsEditMode(false); }}
+                    className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenEdit}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+                  >
+                    <Pencil className="w-4 h-4" strokeWidth={2} />
+                    Edit
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

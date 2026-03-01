@@ -1,31 +1,56 @@
-import React, { useState } from "react";
-import { Bell, FileText, Plus, Download, Pencil, X, Save } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Bell, FileText, Plus, Download, Pencil, X, Save, Wallet, Clock, AlertCircle, Hash } from "lucide-react";
 
 const inputClass = "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
 const labelClass = "block text-xs font-medium text-body uppercase tracking-wider mb-1.5";
 
 const formatINR = (n) => (n == null || isNaN(n) ? "0" : "₹" + Number(n).toLocaleString("en-IN"));
+const parseINR = (str) => parseFloat(String(str ?? "").replace(/[₹,\s]/g, "")) || 0;
 
-function NewInvoiceModal({ open, onClose, onSave }) {
+const getDefaultForm = (todayStr) => ({
+  invoiceNumber: "INV-" + Math.floor(100000 + Math.random() * 900000),
+  client: "",
+  type: "Company",
+  category: "Revenue",
+  baseAmount: "",
+  status: "Pending",
+  paymentMethod: "",
+  invoiceDate: todayStr,
+  dueDate: "",
+  paidDate: "",
+  description: "",
+});
+
+function NewInvoiceModal({ open, onClose, onSave, invoice: editingInvoice }) {
   const today = new Date();
   const dd = String(today.getDate()).padStart(2, "0");
   const mm = String(today.getMonth() + 1).padStart(2, "0");
   const yyyy = today.getFullYear();
   const todayStr = `${dd}-${mm}-${yyyy}`;
 
-  const [form, setForm] = useState({
-    invoiceNumber: "INV-" + Math.floor(100000 + Math.random() * 900000),
-    client: "",
-    type: "Company",
-    category: "Revenue",
-    baseAmount: "",
-    status: "Pending",
-    paymentMethod: "",
-    invoiceDate: todayStr,
-    dueDate: "",
-    paidDate: "",
-    description: "",
-  });
+  const [form, setForm] = useState(getDefaultForm(todayStr));
+
+  useEffect(() => {
+    if (!open) return;
+    if (editingInvoice) {
+      const base = parseINR(editingInvoice.baseAmount);
+      setForm({
+        invoiceNumber: editingInvoice.invoiceNo,
+        client: editingInvoice.client,
+        type: editingInvoice.type,
+        category: "Revenue",
+        baseAmount: base > 0 ? String(base) : "",
+        status: editingInvoice.status,
+        paymentMethod: editingInvoice.method === "-" ? "" : editingInvoice.method,
+        invoiceDate: editingInvoice.invoiceDate === "-" ? todayStr : editingInvoice.invoiceDate,
+        dueDate: editingInvoice.dueDate === "-" ? "" : editingInvoice.dueDate,
+        paidDate: editingInvoice.paidDate === "-" ? "" : editingInvoice.paidDate,
+        description: editingInvoice.description === "-" ? "" : editingInvoice.description,
+      });
+    } else {
+      setForm(getDefaultForm(todayStr));
+    }
+  }, [open, editingInvoice, todayStr]);
 
   const baseNum = parseFloat(String(form.baseAmount).replace(/,/g, "")) || 0;
   const gstNum = Math.round(baseNum * 0.18);
@@ -42,8 +67,8 @@ function NewInvoiceModal({ open, onClose, onSave }) {
     const base = baseNum;
     const gst = gstNum;
     const total = totalNum;
-    const newInvoice = {
-      id: Date.now(),
+    const payload = {
+      id: editingInvoice ? editingInvoice.id : Date.now(),
       invoiceNo: form.invoiceNumber,
       client: form.client.trim(),
       type: form.type,
@@ -57,20 +82,8 @@ function NewInvoiceModal({ open, onClose, onSave }) {
       paidDate: form.paidDate || "-",
       description: form.description?.trim() || "-",
     };
-    onSave(newInvoice);
-    setForm({
-      invoiceNumber: "INV-" + Math.floor(100000 + Math.random() * 900000),
-      client: "",
-      type: "Company",
-      category: "Revenue",
-      baseAmount: "",
-      status: "Pending",
-      paymentMethod: "",
-      invoiceDate: `${String(today.getDate()).padStart(2, "0")}-${String(today.getMonth() + 1).padStart(2, "0")}-${today.getFullYear()}`,
-      dueDate: "",
-      paidDate: "",
-      description: "",
-    });
+    onSave(payload, !!editingInvoice);
+    if (!editingInvoice) setForm(getDefaultForm(todayStr));
     onClose();
   };
 
@@ -81,7 +94,7 @@ function NewInvoiceModal({ open, onClose, onSave }) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">New Invoice</h2>
+          <h2 className="text-lg font-bold text-brand-dark">{editingInvoice ? "Edit Invoice" : "New Invoice"}</h2>
           <button type="button" onClick={onClose} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
             <X className="w-5 h-5" strokeWidth={2} />
           </button>
@@ -212,6 +225,7 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [typeFilter, setTypeFilter] = useState("All Types");
   const [showNewInvoiceModal, setShowNewInvoiceModal] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState(null);
 
   const filtered = invoices.filter((row) => {
     const matchSearch =
@@ -222,6 +236,57 @@ export default function InvoicesPage() {
     const matchType = typeFilter === "All Types" || row.type === typeFilter;
     return matchSearch && matchStatus && matchType;
   });
+
+  const handleExport = () => {
+    const escapeCsv = (val) => {
+      const s = String(val ?? "").trim();
+      if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+    const headers = [
+      "S.no",
+      "Invoice",
+      "Client",
+      "Type",
+      "Base Amount",
+      "GST (18%)",
+      "Total",
+      "Status",
+      "Method",
+      "Invoice Date",
+      "Due Date",
+      "Paid Date",
+      "Description",
+    ];
+    const rows = filtered.map((row, idx) => [
+      idx + 1,
+      row.invoiceNo,
+      row.client,
+      row.type,
+      row.baseAmount,
+      row.gst,
+      row.total,
+      row.status,
+      row.method,
+      row.invoiceDate,
+      row.dueDate,
+      row.paidDate,
+      row.description,
+    ]);
+    const csvContent = [
+      headers.map(escapeCsv).join(","),
+      ...rows.map((r) => r.map(escapeCsv).join(",")),
+    ].join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `invoices-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <>
@@ -245,7 +310,7 @@ export default function InvoicesPage() {
           </button>
           <button
             type="button"
-            onClick={() => setShowNewInvoiceModal(true)}
+            onClick={() => { setEditingInvoice(null); setShowNewInvoiceModal(true); }}
             className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -256,36 +321,91 @@ export default function InvoicesPage() {
 
       <NewInvoiceModal
         open={showNewInvoiceModal}
-        onClose={() => setShowNewInvoiceModal(false)}
-        onSave={(inv) => setInvoices((prev) => [inv, ...prev])}
+        onClose={() => { setShowNewInvoiceModal(false); setEditingInvoice(null); }}
+        onSave={(inv, isEdit) => {
+          if (isEdit) {
+            setInvoices((prev) => prev.map((i) => (i.id === inv.id ? inv : i)));
+          } else {
+            setInvoices((prev) => [inv, ...prev]);
+          }
+        }}
+        invoice={editingInvoice}
       />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
-        {/* Six metric cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
-          <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Total Collected</p>
-            <p className="text-lg font-bold text-success">₹22,24,300</p>
+        {/* Six metric cards - soft gradient design with icons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          <div className="group rounded-2xl bg-gradient-to-br from-teal-50 to-white border border-teal-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-teal-600/90 uppercase tracking-wider mb-1.5">Total Collected</p>
+                <p className="text-2xl font-bold text-teal-700 tabular-nums tracking-tight">₹22,24,300</p>
+                <p className="text-xs text-gray-500 mt-1.5">Collected</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-teal-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Wallet className="w-5 h-5 text-teal-600" strokeWidth={2} />
+              </span>
+            </div>
           </div>
-          <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Pending</p>
-            <p className="text-lg font-bold text-warning">₹3,06,800</p>
+          <div className="group rounded-2xl bg-gradient-to-br from-amber-50 to-white border border-amber-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-amber-600/90 uppercase tracking-wider mb-1.5">Pending</p>
+                <p className="text-2xl font-bold text-amber-700 tabular-nums tracking-tight">₹3,06,800</p>
+                <p className="text-xs text-gray-500 mt-1.5">Awaiting payment</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-amber-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Clock className="w-5 h-5 text-amber-600" strokeWidth={2} />
+              </span>
+            </div>
           </div>
-          <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Overdue</p>
-            <p className="text-lg font-bold text-danger">₹4,72,000</p>
+          <div className="group rounded-2xl bg-gradient-to-br from-red-50 to-white border border-red-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-red-600/90 uppercase tracking-wider mb-1.5">Overdue</p>
+                <p className="text-2xl font-bold text-red-700 tabular-nums tracking-tight">₹4,72,000</p>
+                <p className="text-xs text-gray-500 mt-1.5">Past due</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-red-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <AlertCircle className="w-5 h-5 text-red-600" strokeWidth={2} />
+              </span>
+            </div>
           </div>
-          <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Total Invoiced</p>
-            <p className="text-lg font-bold text-brand">₹30,03,100</p>
+          <div className="group rounded-2xl bg-gradient-to-br from-brand-soft to-white border border-brand-light/80 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-brand-dark/80 uppercase tracking-wider mb-1.5">Total Invoiced</p>
+                <p className="text-2xl font-bold text-brand-dark tabular-nums tracking-tight">₹30,03,100</p>
+                <p className="text-xs text-gray-500 mt-1.5">All time</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileText className="w-5 h-5 text-brand" strokeWidth={2} />
+              </span>
+            </div>
           </div>
-          <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Company Invoices</p>
-            <p className="text-lg font-bold text-teal-600">5</p>
+          <div className="group rounded-2xl bg-gradient-to-br from-teal-50 to-white border border-teal-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-teal-600/90 uppercase tracking-wider mb-1.5">Company Invoices</p>
+                <p className="text-2xl font-bold text-teal-700 tabular-nums tracking-tight">5</p>
+                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-teal-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Hash className="w-5 h-5 text-teal-600" strokeWidth={2} />
+              </span>
+            </div>
           </div>
-          <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Training Fees</p>
-            <p className="text-lg font-bold text-brand">5</p>
+          <div className="group rounded-2xl bg-gradient-to-br from-violet-50 to-white border border-violet-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-violet-600/90 uppercase tracking-wider mb-1.5">Training Fees</p>
+                <p className="text-2xl font-bold text-violet-700 tabular-nums tracking-tight">5</p>
+                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-violet-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileText className="w-5 h-5 text-violet-600" strokeWidth={2} />
+              </span>
+            </div>
           </div>
         </div>
 
@@ -305,7 +425,7 @@ export default function InvoicesPage() {
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="search"
-                placeholder="Search client, invoice #"
+                placeholder="Search client, invoice"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-sm text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand w-48"
@@ -332,6 +452,7 @@ export default function InvoicesPage() {
               </select>
               <button
                 type="button"
+                onClick={handleExport}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-body hover:bg-brand-light text-sm font-medium transition"
               >
                 <Download className="w-4 h-4" strokeWidth={2} />
@@ -341,54 +462,70 @@ export default function InvoicesPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] text-sm">
+            <table className="w-max min-w-[1000px] text-sm table-fixed">
+              <colgroup>
+                <col className="w-12" />
+                <col className="w-28" />
+                <col className="w-[10rem]" />
+                <col className="w-24" />
+                <col className="w-28" />
+                <col className="w-24" />
+                <col className="w-28" />
+                <col className="w-24" />
+                <col className="w-28" />
+                <col className="w-28" />
+                <col className="w-28" />
+                <col className="w-28" />
+                <col className="w-52" />
+                <col className="w-16" />
+              </colgroup>
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">S.no</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Invoice #</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Client</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Type</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-600">Base Amount</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-600">GST (18%)</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-600">Total</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Method</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Invoice Date</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Due Date</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Paid Date</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Description</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Actions</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600">S.no</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Invoice</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Client</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Type</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Base Amount</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600">GST (18%)</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Total</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Status</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Method</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Invoice Date</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Due Date</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Paid Date</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Description</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition py-4">
-                    <td className="py-4 px-4 text-body">{idx + 1}</td>
-                    <td className="py-4 px-4 font-medium text-brand-dark">{row.invoiceNo}</td>
-                    <td className="py-4 px-4 text-body">{row.client}</td>
-                    <td className="py-4 px-4">
+                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                    <td className="py-3 px-3 text-right text-body tabular-nums">{idx + 1}</td>
+                    <td className="py-3 px-3 font-medium text-brand-dark whitespace-nowrap">{row.invoiceNo}</td>
+                    <td className="py-3 px-3 text-body truncate" title={row.client}>{row.client}</td>
+                    <td className="py-3 px-3 text-center">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${TYPE_STYLES[row.type] || "bg-gray-100 text-gray-700"}`}>
                         {row.type}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-right text-body">{row.baseAmount}</td>
-                    <td className="py-4 px-4 text-right text-body">{row.gst}</td>
-                    <td className="py-4 px-4 text-right font-medium text-brand-dark">{row.total}</td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3 text-right text-body tabular-nums whitespace-nowrap">{row.baseAmount}</td>
+                    <td className="py-3 px-3 text-right text-body tabular-nums whitespace-nowrap">{row.gst}</td>
+                    <td className="py-3 px-3 text-right font-medium text-brand-dark tabular-nums whitespace-nowrap">{row.total}</td>
+                    <td className="py-3 px-3 text-center">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[row.status] || "bg-gray-100 text-gray-700"}`}>
                         {row.status}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.method}</td>
-                    <td className="py-4 px-4 text-body">{row.invoiceDate}</td>
-                    <td className="py-4 px-4 text-body">{row.dueDate}</td>
-                    <td className="py-4 px-4 text-body">{row.paidDate}</td>
-                    <td className="py-4 px-4 text-body max-w-[180px] truncate" title={row.description}>{row.description}</td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3 text-body truncate" title={row.method}>{row.method}</td>
+                    <td className="py-3 px-3 text-center text-body tabular-nums whitespace-nowrap">{row.invoiceDate}</td>
+                    <td className="py-3 px-3 text-center text-body tabular-nums whitespace-nowrap">{row.dueDate}</td>
+                    <td className="py-3 px-3 text-center text-body tabular-nums whitespace-nowrap">{row.paidDate}</td>
+                    <td className="py-3 px-3 text-body truncate max-w-0" title={row.description}>{row.description}</td>
+                    <td className="py-3 px-3 text-center">
                       <button
                         type="button"
-                        onClick={() => {}}
-                        className="p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                        onClick={() => { setEditingInvoice(row); setShowNewInvoiceModal(true); }}
+                        className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                         aria-label="Edit invoice"
                       >
                         <Pencil className="w-4 h-4" strokeWidth={2} />

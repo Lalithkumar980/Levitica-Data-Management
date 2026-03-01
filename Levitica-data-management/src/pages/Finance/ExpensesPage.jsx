@@ -1,27 +1,52 @@
-import React, { useState } from "react";
-import { Bell, Wallet, Plus, Download, Pencil, X, Save } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Bell, Wallet, Plus, Download, Pencil, X, Save, CreditCard, RefreshCw, Hash } from "lucide-react";
 
 const inputClass = "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
 const labelClass = "block text-xs font-medium text-body uppercase tracking-wider mb-1.5";
 
 const formatINR = (n) => (n == null || isNaN(n) ? "0" : "₹" + Number(n).toLocaleString("en-IN"));
+const parseINR = (str) => parseFloat(String(str ?? "").replace(/[₹,\s]/g, "")) || 0;
 
-function AddExpenseModal({ open, onClose, onSave }) {
+const getDefaultForm = (todayStr) => ({
+  title: "",
+  category: "Infrastructure",
+  amount: "",
+  vendor: "",
+  status: "Paid",
+  paymentMethod: "",
+  date: todayStr,
+  receiptNo: "REF-" + String(Math.floor(100 + Math.random() * 900)).padStart(3, "0"),
+  recurring: "No",
+  notes: "",
+});
+
+function AddExpenseModal({ open, onClose, onSave, expense: editingExpense }) {
   const today = new Date();
   const todayStr = `${String(today.getDate()).padStart(2, "0")}-${String(today.getMonth() + 1).padStart(2, "0")}-${today.getFullYear()}`;
 
-  const [form, setForm] = useState({
-    title: "",
-    category: "Infrastructure",
-    amount: "",
-    vendor: "",
-    status: "Paid",
-    paymentMethod: "",
-    date: todayStr,
-    receiptNo: "REF-" + String(Math.floor(100 + Math.random() * 900)).padStart(3, "0"),
-    recurring: "No",
-    notes: "",
-  });
+  const [form, setForm] = useState(getDefaultForm(todayStr));
+
+  useEffect(() => {
+    if (!open) return;
+    if (editingExpense) {
+      const amount = parseINR(editingExpense.amount);
+      const recurringVal = editingExpense.recurring === "One-off" ? "No" : editingExpense.recurring;
+      setForm({
+        title: editingExpense.title,
+        category: editingExpense.category,
+        amount: amount > 0 ? String(amount) : "",
+        vendor: editingExpense.vendor === "-" ? "" : editingExpense.vendor,
+        status: editingExpense.status,
+        paymentMethod: editingExpense.method === "-" ? "" : editingExpense.method,
+        date: editingExpense.date === "-" ? todayStr : editingExpense.date,
+        receiptNo: editingExpense.receiptNo === "-" ? "" : editingExpense.receiptNo,
+        recurring: recurringVal,
+        notes: editingExpense.notes === "-" ? "" : editingExpense.notes,
+      });
+    } else {
+      setForm(getDefaultForm(todayStr));
+    }
+  }, [open, editingExpense, todayStr]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -33,8 +58,8 @@ function AddExpenseModal({ open, onClose, onSave }) {
     if (!form.title?.trim()) return;
     const amountNum = parseFloat(String(form.amount).replace(/,/g, "")) || 0;
     const recurringDisplay = form.recurring === "No" ? "One-off" : form.recurring;
-    const newExpense = {
-      id: Date.now(),
+    const payload = {
+      id: editingExpense ? editingExpense.id : Date.now(),
       title: form.title.trim(),
       category: form.category,
       amount: formatINR(amountNum),
@@ -46,19 +71,8 @@ function AddExpenseModal({ open, onClose, onSave }) {
       receiptNo: form.receiptNo?.trim() || "-",
       notes: form.notes?.trim() || "-",
     };
-    onSave(newExpense);
-    setForm({
-      title: "",
-      category: "Infrastructure",
-      amount: "",
-      vendor: "",
-      status: "Paid",
-      paymentMethod: "",
-      date: todayStr,
-      receiptNo: "REF-" + String(Math.floor(100 + Math.random() * 900)).padStart(3, "0"),
-      recurring: "No",
-      notes: "",
-    });
+    onSave(payload, !!editingExpense);
+    if (!editingExpense) setForm(getDefaultForm(todayStr));
     onClose();
   };
 
@@ -69,7 +83,7 @@ function AddExpenseModal({ open, onClose, onSave }) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">Add Expense</h2>
+          <h2 className="text-lg font-bold text-brand-dark">{editingExpense ? "Edit Expense" : "Add Expense"}</h2>
           <button type="button" onClick={onClose} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
             <X className="w-5 h-5" strokeWidth={2} />
           </button>
@@ -189,6 +203,7 @@ export default function ExpensesPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All Categories");
   const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
 
   const filtered = expenses.filter((row) => {
     const matchSearch =
@@ -198,6 +213,53 @@ export default function ExpensesPage() {
     const matchCategory = categoryFilter === "All Categories" || row.category === categoryFilter;
     return matchSearch && matchCategory;
   });
+
+  const handleExport = () => {
+    const escapeCsv = (val) => {
+      const s = String(val ?? "").trim();
+      if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+    const headers = [
+      "S.no",
+      "Title",
+      "Category",
+      "Amount",
+      "Vendor",
+      "Status",
+      "Method",
+      "Date",
+      "Recurring",
+      "Receipt #",
+      "Notes",
+    ];
+    const rows = filtered.map((row, idx) => [
+      idx + 1,
+      row.title,
+      row.category,
+      row.amount,
+      row.vendor,
+      row.status,
+      row.method,
+      row.date,
+      row.recurring,
+      row.receiptNo,
+      row.notes,
+    ]);
+    const csvContent = [
+      headers.map(escapeCsv).join(","),
+      ...rows.map((r) => r.map(escapeCsv).join(",")),
+    ].join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `expenses-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <>
@@ -221,7 +283,7 @@ export default function ExpensesPage() {
           </button>
           <button
             type="button"
-            onClick={() => setShowAddExpenseModal(true)}
+            onClick={() => { setEditingExpense(null); setShowAddExpenseModal(true); }}
             className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -232,28 +294,67 @@ export default function ExpensesPage() {
 
       <AddExpenseModal
         open={showAddExpenseModal}
-        onClose={() => setShowAddExpenseModal(false)}
-        onSave={(exp) => setExpenses((prev) => [exp, ...prev])}
+        onClose={() => { setShowAddExpenseModal(false); setEditingExpense(null); }}
+        onSave={(exp, isEdit) => {
+          if (isEdit) {
+            setExpenses((prev) => prev.map((e) => (e.id === exp.id ? exp : e)));
+          } else {
+            setExpenses((prev) => [exp, ...prev]);
+          }
+        }}
+        expense={editingExpense}
       />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
-        {/* Four summary cards */}
+        {/* Four summary cards - soft gradient design with icons */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Total Spent</p>
-            <p className="text-lg font-bold text-danger">₹9,42,200</p>
+          <div className="group rounded-2xl bg-gradient-to-br from-red-50 to-white border border-red-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-red-600/90 uppercase tracking-wider mb-1.5">Total Spent</p>
+                <p className="text-2xl font-bold text-red-700 tabular-nums tracking-tight">₹9,42,200</p>
+                <p className="text-xs text-gray-500 mt-1.5">All time</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-red-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Wallet className="w-5 h-5 text-red-600" strokeWidth={2} />
+              </span>
+            </div>
           </div>
-          <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Pending Payment</p>
-            <p className="text-lg font-bold text-warning">₹42,000</p>
+          <div className="group rounded-2xl bg-gradient-to-br from-amber-50 to-white border border-amber-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-amber-600/90 uppercase tracking-wider mb-1.5">Pending Payment</p>
+                <p className="text-2xl font-bold text-amber-700 tabular-nums tracking-tight">₹42,000</p>
+                <p className="text-xs text-gray-500 mt-1.5">To pay</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-amber-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <CreditCard className="w-5 h-5 text-amber-600" strokeWidth={2} />
+              </span>
+            </div>
           </div>
-          <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Recurring Expenses</p>
-            <p className="text-lg font-bold text-brand-dark">6</p>
+          <div className="group rounded-2xl bg-gradient-to-br from-brand-soft to-white border border-brand-light/80 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-brand-dark/80 uppercase tracking-wider mb-1.5">Recurring Expenses</p>
+                <p className="text-2xl font-bold text-brand-dark tabular-nums tracking-tight">6</p>
+                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center group-hover:scale-105 transition-transform">
+                <RefreshCw className="w-5 h-5 text-brand" strokeWidth={2} />
+              </span>
+            </div>
           </div>
-          <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm">
-            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Total Records</p>
-            <p className="text-lg font-bold text-brand-dark">10</p>
+          <div className="group rounded-2xl bg-gradient-to-br from-violet-50 to-white border border-violet-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-violet-600/90 uppercase tracking-wider mb-1.5">Total Records</p>
+                <p className="text-2xl font-bold text-violet-700 tabular-nums tracking-tight">10</p>
+                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-violet-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Hash className="w-5 h-5 text-violet-600" strokeWidth={2} />
+              </span>
+            </div>
           </div>
         </div>
 
@@ -288,6 +389,7 @@ export default function ExpensesPage() {
               </select>
               <button
                 type="button"
+                onClick={handleExport}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-body hover:bg-brand-light text-sm font-medium transition"
               >
                 <Download className="w-4 h-4" strokeWidth={2} />
@@ -297,54 +399,68 @@ export default function ExpensesPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm">
+            <table className="w-max min-w-[900px] text-sm table-fixed">
+              <colgroup>
+                <col className="w-12" />
+                <col className="w-[10rem]" />
+                <col className="w-24" />
+                <col className="w-28" />
+                <col className="w-[8rem]" />
+                <col className="w-24" />
+                <col className="w-28" />
+                <col className="w-28" />
+                <col className="w-24" />
+                <col className="w-24" />
+                <col className="w-48" />
+                <col className="w-16" />
+              </colgroup>
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">S.no</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Title</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Category</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-600">Amount</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Vendor</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Method</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Date</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Recurring</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Receipt #</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Notes</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Actions</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600">S.no</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Title</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Category</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Amount</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Vendor</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Status</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Method</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Date</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Recurring</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Receipt #</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Notes</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                    <td className="py-4 px-4 text-body">{idx + 1}</td>
-                    <td className="py-4 px-4 font-medium text-brand-dark">{row.title}</td>
-                    <td className="py-4 px-4">
+                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                    <td className="py-3 px-3 text-right text-body tabular-nums">{idx + 1}</td>
+                    <td className="py-3 px-3 font-medium text-brand-dark truncate" title={row.title}>{row.title}</td>
+                    <td className="py-3 px-3 text-center">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${CATEGORY_STYLES[row.category] || "bg-gray-100 text-gray-700"}`}>
                         {row.category}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-right font-medium text-brand-dark">{row.amount}</td>
-                    <td className="py-4 px-4 text-body">{row.vendor}</td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3 text-right font-medium text-brand-dark tabular-nums whitespace-nowrap">{row.amount}</td>
+                    <td className="py-3 px-3 text-body truncate" title={row.vendor}>{row.vendor}</td>
+                    <td className="py-3 px-3 text-center">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[row.status] || "bg-gray-100 text-gray-700"}`}>
                         {row.status}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.method}</td>
-                    <td className="py-4 px-4 text-body">{row.date}</td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3 text-body truncate" title={row.method}>{row.method}</td>
+                    <td className="py-3 px-3 text-center text-body tabular-nums whitespace-nowrap">{row.date}</td>
+                    <td className="py-3 px-3 text-center">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${RECURRING_STYLES[row.recurring] || "bg-gray-100 text-gray-700"}`}>
                         {row.recurring}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.receiptNo}</td>
-                    <td className="py-4 px-4 text-body max-w-[140px] truncate" title={row.notes}>{row.notes}</td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3 text-body truncate" title={row.receiptNo}>{row.receiptNo}</td>
+                    <td className="py-3 px-3 text-body truncate max-w-0" title={row.notes}>{row.notes}</td>
+                    <td className="py-3 px-3 text-center">
                       <button
                         type="button"
-                        onClick={() => {}}
-                        className="p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                        onClick={() => { setEditingExpense(row); setShowAddExpenseModal(true); }}
+                        className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                         aria-label="Edit expense"
                       >
                         <Pencil className="w-4 h-4" strokeWidth={2} />

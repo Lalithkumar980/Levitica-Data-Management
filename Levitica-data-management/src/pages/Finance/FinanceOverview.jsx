@@ -1,5 +1,5 @@
 import React from "react";
-import { Bell, Zap, User, Banknote, Trophy, Wallet, FileText, BarChart3, Receipt } from "lucide-react";
+import { Bell, Zap, User, Banknote, Trophy, Wallet, Receipt, TrendingUp, FileText } from "lucide-react";
 
 const RECENT_ACTIVITY = [
   { type: "joined", title: "Rahul Sharma joined", subtitle: "CA Engineer · 2025-03-10", icon: "person" },
@@ -44,52 +44,66 @@ export default function FinanceOverview() {
       </header>
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
-        {/* Five summary cards */}
+        {/* Summary cards - soft gradient design with icons */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-          <div className="rounded-2xl bg-[#0d9488] text-white p-5 shadow-md flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <Wallet className="w-7 h-7" strokeWidth={2} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white/90 uppercase tracking-wider mb-0.5">Total Collected</p>
-              <p className="text-xl font-bold">₹22,24,300</p>
-            </div>
-          </div>
-          <div className="rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white p-5 shadow-md flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <Receipt className="w-7 h-7" strokeWidth={2} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white/90 uppercase tracking-wider mb-0.5">Outstanding</p>
-              <p className="text-xl font-bold">₹7,78,800</p>
+          <div className="group rounded-2xl bg-gradient-to-br from-teal-50 to-white border border-teal-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-teal-600/90 uppercase tracking-wider mb-1.5">Total Collected</p>
+                <p className="text-2xl font-bold text-teal-700 tabular-nums tracking-tight">₹22,24,300</p>
+                <p className="text-xs text-gray-500 mt-1.5">All time</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-teal-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Wallet className="w-5 h-5 text-teal-600" strokeWidth={2} />
+              </span>
             </div>
           </div>
-          <div className="rounded-2xl bg-gradient-to-br from-red-500 to-pink-500 text-white p-5 shadow-md flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <Wallet className="w-7 h-7" strokeWidth={2} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white/90 uppercase tracking-wider mb-0.5">Total Expenses</p>
-              <p className="text-xl font-bold">₹9,42,200</p>
-            </div>
-          </div>
-          <div className="rounded-2xl bg-gradient-to-br from-violet-600 to-purple-600 text-white p-5 shadow-md flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <BarChart3 className="w-7 h-7" strokeWidth={2} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white/90 uppercase tracking-wider mb-0.5">Net P&L</p>
-              <p className="text-xl font-bold">₹12,82,100</p>
+          <div className="group rounded-2xl bg-gradient-to-br from-amber-50 to-white border border-amber-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-amber-600/90 uppercase tracking-wider mb-1.5">Outstanding</p>
+                <p className="text-2xl font-bold text-amber-700 tabular-nums tracking-tight">₹7,78,800</p>
+                <p className="text-xs text-gray-500 mt-1.5">Pending collections</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-amber-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Receipt className="w-5 h-5 text-amber-600" strokeWidth={2} />
+              </span>
             </div>
           </div>
-          <div className="rounded-2xl bg-[#1e3a5f] text-white p-5 shadow-md flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <FileText className="w-7 h-7" strokeWidth={2} />
+          <div className="group rounded-2xl bg-gradient-to-br from-red-50 to-white border border-red-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-red-600/90 uppercase tracking-wider mb-1.5">Total Expenses</p>
+                <p className="text-2xl font-bold text-red-700 tabular-nums tracking-tight">₹9,42,200</p>
+                <p className="text-xs text-gray-500 mt-1.5">All time</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-red-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Wallet className="w-5 h-5 text-red-600" strokeWidth={2} />
+              </span>
             </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white/90 uppercase tracking-wider mb-0.5">Invoices</p>
-              <p className="text-xl font-bold">10</p>
-              <p className="text-xs text-white/75 mt-0.5">To overdue</p>
+          </div>
+          <div className="group rounded-2xl bg-gradient-to-br from-violet-50 to-white border border-violet-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-violet-600/90 uppercase tracking-wider mb-1.5">Net P&L</p>
+                <p className="text-2xl font-bold text-violet-700 tabular-nums tracking-tight">₹12,82,100</p>
+                <p className="text-xs text-gray-500 mt-1.5">Profit</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-violet-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <TrendingUp className="w-5 h-5 text-violet-600" strokeWidth={2} />
+              </span>
+            </div>
+          </div>
+          <div className="group rounded-2xl bg-gradient-to-br from-brand-soft to-white border border-brand-light/80 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-semibold text-brand-dark/80 uppercase tracking-wider mb-1.5">Invoices</p>
+                <p className="text-2xl font-bold text-brand-dark tabular-nums tracking-tight">10</p>
+                <p className="text-xs text-gray-500 mt-1.5">To overdue</p>
+              </div>
+              <span className="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileText className="w-5 h-5 text-brand" strokeWidth={2} />
+              </span>
             </div>
           </div>
         </div>
