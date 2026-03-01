@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "react-toastify";
 import {
   Bell,
   Plus,
@@ -6,7 +7,21 @@ import {
   Trash2,
   Eye,
   Download,
+  X,
+  Save,
 } from "lucide-react";
+
+const INDUSTRIES = ["Technology", "Consulting", "Retail", "Healthcare", "Education", "Finance", "Manufacturing", "Other"];
+const LEAD_SOURCES = ["Website", "Referral", "Cold Call", "LinkedIn", "Event/Trade Show", "Partner", "Advertisement"];
+const STATUS_OPTIONS = ["New", "Contacted", "Qualified", "Converted", "Disqualified"];
+const ASSIGNED_USERS = [
+  { name: "Priya Nair", initials: "PN" },
+  { name: "Arjun Kapoor", initials: "AR" },
+  { name: "Vikram Joshi", initials: "VJ" },
+  { name: "Meena Reddy", initials: "MR" },
+  { name: "Aditya Kumar", initials: "AK" },
+  { name: "Kavya Shah", initials: "KS" },
+];
 
 const STATUS_STYLES = {
   New: "bg-blue-100 text-blue-700",
@@ -37,11 +52,28 @@ const INITIAL_LEADS = [
   { id: 8, name: "Nisha Jain", subtext: "Budget too low", company: "AutoParts Hub", phone: "9738123456", email: "nisha@autoparts.co", industry: "Manufacturing", city: "Surat, India", source: "Advertisement", status: "Disqualified", owner: "Kavya Shah", ownerInitials: "KS", created: "2025-02-10" },
 ];
 
+const initialLeadForm = {
+  firstName: "",
+  lastName: "",
+  company: "",
+  phone: "",
+  email: "",
+  industry: "Technology",
+  city: "",
+  country: "India",
+  leadSource: "Website",
+  status: "New",
+  assignedTo: "Priya Nair",
+  notes: "",
+};
+
 export default function AdminLeadsPage() {
   const [leads, setLeads] = useState(INITIAL_LEADS);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [sourceFilter, setSourceFilter] = useState("All Sources");
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [leadForm, setLeadForm] = useState(initialLeadForm);
 
   const filtered = leads.filter((row) => {
     const matchSearch =
@@ -67,6 +99,40 @@ export default function AdminLeadsPage() {
     setLeads((prev) => prev.filter((l) => l.id !== id));
   };
 
+  const handleLeadFormChange = (field, value) => {
+    setLeadForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveLead = () => {
+    const { firstName, lastName, company, phone, email, industry, city, country, leadSource, status, assignedTo, notes } = leadForm;
+    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !leadSource) return;
+    const ownerEntry = ASSIGNED_USERS.find((u) => u.name === assignedTo) || ASSIGNED_USERS[0];
+    const newLead = {
+      id: Math.max(0, ...leads.map((l) => l.id)) + 1,
+      name: `${firstName.trim()} ${lastName.trim()}`,
+      subtext: notes.trim().slice(0, 50) || "—",
+      company: company.trim() || "—",
+      phone: phone.trim(),
+      email: email.trim() || "—",
+      industry: industry,
+      city: city.trim() ? `${city.trim()}, ${country.trim() || "India"}` : `${country.trim() || "India"}`,
+      source: leadSource,
+      status,
+      owner: ownerEntry.name,
+      ownerInitials: ownerEntry.initials,
+      created: new Date().toISOString().slice(0, 10),
+    };
+    setLeads((prev) => [newLead, ...prev]);
+    setLeadForm(initialLeadForm);
+    setAddModalOpen(false);
+    toast.success("Lead added successfully");
+  };
+
+  const closeAddModal = () => {
+    setAddModalOpen(false);
+    setLeadForm(initialLeadForm);
+  };
+
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
@@ -89,6 +155,7 @@ export default function AdminLeadsPage() {
           </button>
           <button
             type="button"
+            onClick={() => setAddModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -266,6 +333,176 @@ export default function AdminLeadsPage() {
           )}
         </div>
       </div>
+
+      {/* Add Lead Modal */}
+      {addModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+              <h2 className="text-lg font-bold text-brand-dark">Add Lead</h2>
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-4 border-b border-brand/30 pb-2">Lead Information</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">First name *</label>
+                  <input
+                    type="text"
+                    value={leadForm.firstName}
+                    onChange={(e) => handleLeadFormChange("firstName", e.target.value)}
+                    placeholder="First name"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Last name *</label>
+                  <input
+                    type="text"
+                    value={leadForm.lastName}
+                    onChange={(e) => handleLeadFormChange("lastName", e.target.value)}
+                    placeholder="Last name"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Company</label>
+                  <input
+                    type="text"
+                    value={leadForm.company}
+                    onChange={(e) => handleLeadFormChange("company", e.target.value)}
+                    placeholder="Company name"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Phone *</label>
+                  <input
+                    type="text"
+                    value={leadForm.phone}
+                    onChange={(e) => handleLeadFormChange("phone", e.target.value)}
+                    placeholder="+91 00000 00000"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Email</label>
+                  <input
+                    type="email"
+                    value={leadForm.email}
+                    onChange={(e) => handleLeadFormChange("email", e.target.value)}
+                    placeholder="email@company.com"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Industry</label>
+                  <select
+                    value={leadForm.industry}
+                    onChange={(e) => handleLeadFormChange("industry", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {INDUSTRIES.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">City</label>
+                  <input
+                    type="text"
+                    value={leadForm.city}
+                    onChange={(e) => handleLeadFormChange("city", e.target.value)}
+                    placeholder="City"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Country</label>
+                  <input
+                    type="text"
+                    value={leadForm.country}
+                    onChange={(e) => handleLeadFormChange("country", e.target.value)}
+                    placeholder="Country"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Lead source *</label>
+                  <select
+                    value={leadForm.leadSource}
+                    onChange={(e) => handleLeadFormChange("leadSource", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {LEAD_SOURCES.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Status</label>
+                  <select
+                    value={leadForm.status}
+                    onChange={(e) => handleLeadFormChange("status", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Assigned to</label>
+                  <select
+                    value={leadForm.assignedTo}
+                    onChange={(e) => handleLeadFormChange("assignedTo", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {ASSIGNED_USERS.map((u) => (
+                      <option key={u.initials} value={u.name}>{u.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Notes</label>
+                  <textarea
+                    value={leadForm.notes}
+                    onChange={(e) => handleLeadFormChange("notes", e.target.value)}
+                    placeholder="Notes"
+                    rows={3}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm resize-y min-h-[80px]"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-white">
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveLead}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+              >
+                <Save className="w-4 h-4" strokeWidth={2} />
+                Save Lead
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

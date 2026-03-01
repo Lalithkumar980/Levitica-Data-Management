@@ -5,7 +5,28 @@ import {
   Pencil,
   Trash2,
   Info,
+  X,
+  Save,
+  Calendar,
 } from "lucide-react";
+
+const REPS = [
+  { name: "Priya Nair", initials: "PN" },
+  { name: "Vikram Joshi", initials: "VJ" },
+  { name: "Meena Reddy", initials: "MR" },
+  { name: "Aditya Kumar", initials: "AK" },
+  { name: "Kavya Shah", initials: "KS" },
+];
+const LINKED_DEALS = ["— None —", "TechNova Enterprise License", "GreenPath Consulting Module", "Horizon Retail Integration", "MediCore Healthcare Module", "EduLeap Education Suite", "FinPlex SaaS Starter"];
+
+const initialEmailForm = {
+  subject: "",
+  date: "",
+  company: "",
+  rep: "Priya Nair",
+  linkedDeal: "— None —",
+  notes: "",
+};
 
 const INITIAL_EMAILS = [
   { id: 1, date: "2025-02-18", subject: "Proposal Sent - GreenPath", company: "GreenPath Solutions", rep: "Meena Reddy", repInitials: "MR", deal: "GreenPath Consulting Module", notes: "Emailed proposal with payment terms and timeline. Awaiting response." },
@@ -15,6 +36,8 @@ const INITIAL_EMAILS = [
 export default function AdminEmailLogPage() {
   const [emails, setEmails] = useState(INITIAL_EMAILS);
   const [search, setSearch] = useState("");
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [emailForm, setEmailForm] = useState(initialEmailForm);
 
   const filtered = emails.filter(
     (row) =>
@@ -34,6 +57,42 @@ export default function AdminEmailLogPage() {
 
   const handleDelete = (id) => {
     setEmails((prev) => prev.filter((e) => e.id !== id));
+  };
+
+  const toYyyyMmDd = (ddMmYyyy) => {
+    if (!ddMmYyyy || !/^\d{2}-\d{2}-\d{4}$/.test(ddMmYyyy)) return ddMmYyyy || "";
+    const [d, m, y] = ddMmYyyy.split("-");
+    return `${y}-${m}-${d}`;
+  };
+
+  const handleEmailFormChange = (field, value) => {
+    setEmailForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveEmail = () => {
+    const { subject, date, company, rep, linkedDeal, notes } = emailForm;
+    if (!subject.trim()) return;
+    const repEntry = REPS.find((r) => r.name === rep) || REPS[0];
+    const emailDate = toYyyyMmDd(date) || new Date().toISOString().slice(0, 10);
+    const deal = linkedDeal === "— None —" ? "—" : linkedDeal;
+    const newEmail = {
+      id: Math.max(0, ...emails.map((e) => e.id)) + 1,
+      date: emailDate,
+      subject: subject.trim(),
+      company: company.trim() || "—",
+      rep: repEntry.name,
+      repInitials: repEntry.initials,
+      deal: deal || "—",
+      notes: notes.trim() || "—",
+    };
+    setEmails((prev) => [newEmail, ...prev]);
+    setEmailForm(initialEmailForm);
+    setAddModalOpen(false);
+  };
+
+  const closeAddModal = () => {
+    setAddModalOpen(false);
+    setEmailForm(initialEmailForm);
   };
 
   return (
@@ -58,6 +117,7 @@ export default function AdminEmailLogPage() {
           </button>
           <button
             type="button"
+            onClick={() => setAddModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -168,6 +228,115 @@ export default function AdminEmailLogPage() {
           )}
         </div>
       </div>
+
+      {/* Log Email Activity Modal */}
+      {addModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+              <h2 className="text-lg font-bold text-brand-dark">Log Email Activity</h2>
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-4 border-b border-brand/30 pb-2">Email Details</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Subject *</label>
+                  <input
+                    type="text"
+                    value={emailForm.subject}
+                    onChange={(e) => handleEmailFormChange("subject", e.target.value)}
+                    placeholder="Email subject"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Date</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={emailForm.date}
+                      onChange={(e) => handleEmailFormChange("date", e.target.value)}
+                      placeholder="dd-mm-yyyy"
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm pr-10"
+                    />
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={2} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Company</label>
+                  <input
+                    type="text"
+                    value={emailForm.company}
+                    onChange={(e) => handleEmailFormChange("company", e.target.value)}
+                    placeholder="Company name"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Rep</label>
+                  <select
+                    value={emailForm.rep}
+                    onChange={(e) => handleEmailFormChange("rep", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {REPS.map((r) => (
+                      <option key={r.initials} value={r.name}>{r.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Linked deal</label>
+                  <select
+                    value={emailForm.linkedDeal}
+                    onChange={(e) => handleEmailFormChange("linkedDeal", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {LINKED_DEALS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Notes</label>
+                  <textarea
+                    value={emailForm.notes}
+                    onChange={(e) => handleEmailFormChange("notes", e.target.value)}
+                    placeholder="Email summary / content"
+                    rows={4}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm resize-y min-h-[100px]"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-white">
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEmail}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+              >
+                <Save className="w-4 h-4" strokeWidth={2} />
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

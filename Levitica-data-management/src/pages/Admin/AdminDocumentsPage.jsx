@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   Bell,
   Plus,
@@ -9,9 +9,25 @@ import {
   Mic,
   FileStack,
   FileCheck,
+  X,
+  Save,
+  Paperclip,
+  Calendar,
 } from "lucide-react";
 
+const LINKED_DEALS = ["— None —", "TechNova Enterprise License", "GreenPath Consulting Module", "Horizon Retail Integration", "MediCore Healthcare Module", "EduLeap Education Suite", "FinPlex SaaS Starter"];
+const LINKED_CONTACTS = ["— None —", "Suresh Rajan", "Meena Joshi", "Deepak Verma", "Priya Nair", "Arun Krishnan"];
+const FILE_TYPES = ["Document", "Proposal", "Call Recording", "Contract"];
+
+function formatFileSize(bytes) {
+  if (!bytes) return "";
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
 const TYPE_STYLES = {
+  Document: "bg-gray-100 text-gray-700",
   Proposal: "bg-violet-100 text-violet-700",
   Contract: "bg-emerald-100 text-emerald-700",
   "Call Recording": "bg-amber-100 text-amber-700",
@@ -25,10 +41,26 @@ const INITIAL_DOCUMENTS = [
   { id: 5, fileName: "GreenPath_Proposal_v2.pdf", type: "Proposal", company: "GreenPath Solutions", linkedDeal: "GreenPath Consulting Module", uploadedBy: "Meena Reddy", uploadedByInitials: "MR", date: "2025-02-18", size: "2.2 MB", notes: "Revised proposal with payment terms", isPdf: true },
 ];
 
+const initialUploadForm = {
+  fileName: "",
+  fileType: "Document",
+  company: "",
+  fileSize: "",
+  linkedDeal: "— None —",
+  linkedContact: "— None —",
+  uploadDate: "",
+  notes: "",
+};
+
 export default function AdminDocumentsPage() {
   const [documents, setDocuments] = useState(INITIAL_DOCUMENTS);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("All Types");
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadForm, setUploadForm] = useState(initialUploadForm);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef(null);
 
   const filtered = documents.filter((row) => {
     const matchSearch =
@@ -47,6 +79,67 @@ export default function AdminDocumentsPage() {
 
   const handleDelete = (id) => {
     setDocuments((prev) => prev.filter((d) => d.id !== id));
+  };
+
+  const toYyyyMmDd = (ddMmYyyy) => {
+    if (!ddMmYyyy || !/^\d{2}-\d{2}-\d{4}$/.test(ddMmYyyy)) return ddMmYyyy || "";
+    const [d, m, y] = ddMmYyyy.split("-");
+    return `${y}-${m}-${d}`;
+  };
+
+  const handleUploadFormChange = (field, value) => {
+    setUploadForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleFileSelect = (file) => {
+    if (!file) return;
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (file.size > maxSize) return;
+    setSelectedFile(file);
+    setUploadForm((prev) => ({
+      ...prev,
+      fileName: file.name,
+      fileSize: formatFileSize(file.size),
+    }));
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileSelect(e.dataTransfer?.files?.[0]);
+  };
+
+  const handleSaveUpload = () => {
+    const { fileName, fileType, company, fileSize, linkedDeal, linkedContact, uploadDate, notes } = uploadForm;
+    if (!fileName.trim()) return;
+    const date = toYyyyMmDd(uploadDate) || new Date().toISOString().slice(0, 10);
+    const deal = linkedDeal === "— None —" ? "—" : linkedDeal;
+    const ext = (fileName.split(".").pop() || "").toLowerCase();
+    const isPdf = ext === "pdf";
+    const newDoc = {
+      id: Math.max(0, ...documents.map((d) => d.id)) + 1,
+      fileName: fileName.trim(),
+      type: fileType,
+      company: company.trim() || "—",
+      linkedDeal: deal || "—",
+      uploadedBy: "Priya Nair",
+      uploadedByInitials: "PN",
+      date,
+      size: fileSize || "—",
+      notes: notes.trim() || "—",
+      isPdf,
+    };
+    setDocuments((prev) => [newDoc, ...prev]);
+    setUploadForm(initialUploadForm);
+    setSelectedFile(null);
+    setUploadModalOpen(false);
+  };
+
+  const closeUploadModal = () => {
+    setUploadModalOpen(false);
+    setUploadForm(initialUploadForm);
+    setSelectedFile(null);
+    setIsDragging(false);
   };
 
   return (
@@ -71,6 +164,7 @@ export default function AdminDocumentsPage() {
           </button>
           <button
             type="button"
+            onClick={() => setUploadModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -138,6 +232,7 @@ export default function AdminDocumentsPage() {
                 className="px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-sm text-body focus:outline-none focus:ring-2 focus:ring-brand appearance-none cursor-pointer pr-8"
               >
                 <option>All Types</option>
+                <option>Document</option>
                 <option>Proposal</option>
                 <option>Contract</option>
                 <option>Call Recording</option>
@@ -237,6 +332,161 @@ export default function AdminDocumentsPage() {
           )}
         </div>
       </div>
+
+      {/* Upload Document Modal */}
+      {uploadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={closeUploadModal} aria-hidden />
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+              <h2 className="text-lg font-bold text-brand-dark">Upload Document</h2>
+              <button
+                type="button"
+                onClick={closeUploadModal}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-3 border-b border-brand/30 pb-2">File Upload</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.mp3,.mp4"
+                className="hidden"
+                onChange={(e) => handleFileSelect(e.target.files?.[0])}
+              />
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                onDrop={handleDrop}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition mb-6 ${
+                  isDragging ? "border-brand bg-brand-soft" : "border-gray-200 hover:border-brand hover:bg-brand-soft/50"
+                }`}
+              >
+                <Paperclip className="w-12 h-12 mx-auto text-brand mb-3" strokeWidth={1.5} />
+                <p className="text-body font-medium">Click to select file or drag & drop</p>
+                <p className="text-xs text-brand mt-1">PDF, DOC, MP3, MP4 up to 50MB</p>
+                {selectedFile && (
+                  <p className="text-sm text-success mt-2">{selectedFile.name}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">File name *</label>
+                  <input
+                    type="text"
+                    value={uploadForm.fileName}
+                    onChange={(e) => handleUploadFormChange("fileName", e.target.value)}
+                    placeholder="document.pdf"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Company</label>
+                  <input
+                    type="text"
+                    value={uploadForm.company}
+                    onChange={(e) => handleUploadFormChange("company", e.target.value)}
+                    placeholder="Company name"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">File type</label>
+                  <select
+                    value={uploadForm.fileType}
+                    onChange={(e) => handleUploadFormChange("fileType", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {FILE_TYPES.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Linked deal</label>
+                  <select
+                    value={uploadForm.linkedDeal}
+                    onChange={(e) => handleUploadFormChange("linkedDeal", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {LINKED_DEALS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">File size</label>
+                  <input
+                    type="text"
+                    value={uploadForm.fileSize}
+                    readOnly
+                    placeholder="e.g. 2.4 MB"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Linked contact</label>
+                  <select
+                    value={uploadForm.linkedContact}
+                    onChange={(e) => handleUploadFormChange("linkedContact", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {LINKED_CONTACTS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Upload date</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={uploadForm.uploadDate}
+                      onChange={(e) => handleUploadFormChange("uploadDate", e.target.value)}
+                      placeholder="dd-mm-yyyy"
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm pr-10"
+                    />
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={2} />
+                  </div>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Notes</label>
+                  <textarea
+                    value={uploadForm.notes}
+                    onChange={(e) => handleUploadFormChange("notes", e.target.value)}
+                    placeholder="Additional notes..."
+                    rows={3}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm resize-y min-h-[80px]"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-white">
+              <button
+                type="button"
+                onClick={closeUploadModal}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveUpload}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+              >
+                <Save className="w-4 h-4" strokeWidth={2} />
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

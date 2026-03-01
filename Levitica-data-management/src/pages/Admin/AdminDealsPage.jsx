@@ -7,7 +7,21 @@ import {
   Eye,
   Download,
   LayoutGrid,
+  X,
+  Save,
+  Calendar,
 } from "lucide-react";
+
+const STAGES = ["Lead", "Qualified", "Meeting/Demo", "Negotiation", "Proposal Sent", "Won", "Lost"];
+const LEAD_SOURCES = ["Website", "Referral", "Cold Call", "LinkedIn", "Event/Trade Show", "Partner"];
+const INDUSTRIES = ["Technology", "Consulting", "Retail", "Healthcare", "Education", "Finance", "Other"];
+const OWNERS = [
+  { name: "Priya Nair", initials: "PN" },
+  { name: "Vikram Joshi", initials: "VJ" },
+  { name: "Meena Reddy", initials: "MR" },
+  { name: "Aditya Kumar", initials: "AK" },
+  { name: "Kavya Shah", initials: "KS" },
+];
 
 const STAGE_STYLES = {
   Won: "bg-emerald-100 text-emerald-700",
@@ -30,11 +44,29 @@ const INITIAL_DEALS = [
   { id: 8, title: "AutoParts Hub - Lead", subtext: "Surat", company: "AutoParts Hub", value: "₹5,00,000", stage: "Lead", probability: 10, product: "SaaS Starter", owner: "Kavya Shah", ownerInitials: "KS", closeDate: "2025-07-01", followUp: "2025-03-20", lastActivity: "2025-02-10" },
 ];
 
+const initialDealForm = {
+  dealTitle: "",
+  company: "",
+  dealValue: "0",
+  stage: "Lead",
+  probability: "10",
+  productService: "",
+  owner: "Priya Nair",
+  leadSource: "Website",
+  expectedCloseDate: "",
+  followUpDate: "",
+  industry: "Technology",
+  city: "",
+  notes: "",
+};
+
 export default function AdminDealsPage() {
   const [deals, setDeals] = useState(INITIAL_DEALS);
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("All Stages");
   const [ownerFilter, setOwnerFilter] = useState("All Owners");
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [dealForm, setDealForm] = useState(initialDealForm);
 
   const filtered = deals.filter((row) => {
     const matchSearch =
@@ -62,6 +94,50 @@ export default function AdminDealsPage() {
     setDeals((prev) => prev.filter((d) => d.id !== id));
   };
 
+  const toYyyyMmDd = (ddMmYyyy) => {
+    if (!ddMmYyyy || !/^\d{2}-\d{2}-\d{4}$/.test(ddMmYyyy)) return ddMmYyyy || "";
+    const [d, m, y] = ddMmYyyy.split("-");
+    return `${y}-${m}-${d}`;
+  };
+
+  const handleDealFormChange = (field, value) => {
+    setDealForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveDeal = () => {
+    const { dealTitle, company, dealValue, stage, probability, productService, owner, expectedCloseDate, followUpDate, city, notes } = dealForm;
+    if (!dealTitle.trim() || !company.trim() || !dealValue.trim()) return;
+    const ownerEntry = OWNERS.find((o) => o.name === owner) || OWNERS[0];
+    const valueNum = parseInt(String(dealValue).replace(/[₹,\s]/g, ""), 10) || 0;
+    const valueDisplay = formatCurrency(valueNum);
+    const closeDate = toYyyyMmDd(expectedCloseDate) || new Date().toISOString().slice(0, 10);
+    const followUp = toYyyyMmDd(followUpDate) || closeDate;
+    const today = new Date().toISOString().slice(0, 10);
+    const newDeal = {
+      id: Math.max(0, ...deals.map((d) => d.id)) + 1,
+      title: dealTitle.trim(),
+      subtext: city.trim() || "—",
+      company: company.trim(),
+      value: valueDisplay,
+      stage,
+      probability: parseInt(probability, 10) || 0,
+      product: productService.trim() || "—",
+      owner: ownerEntry.name,
+      ownerInitials: ownerEntry.initials,
+      closeDate,
+      followUp,
+      lastActivity: today,
+    };
+    setDeals((prev) => [newDeal, ...prev]);
+    setDealForm(initialDealForm);
+    setAddModalOpen(false);
+  };
+
+  const closeAddModal = () => {
+    setAddModalOpen(false);
+    setDealForm(initialDealForm);
+  };
+
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
@@ -84,6 +160,7 @@ export default function AdminDealsPage() {
           </button>
           <button
             type="button"
+            onClick={() => setAddModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -269,6 +346,192 @@ export default function AdminDealsPage() {
           )}
         </div>
       </div>
+
+      {/* New Deal Modal */}
+      {addModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+              <h2 className="text-lg font-bold text-brand-dark">New Deal</h2>
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-4 border-b border-brand/30 pb-2">Deal Information</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Deal title *</label>
+                  <input
+                    type="text"
+                    value={dealForm.dealTitle}
+                    onChange={(e) => handleDealFormChange("dealTitle", e.target.value)}
+                    placeholder="e.g. TechNova Enterprise License"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Company *</label>
+                  <input
+                    type="text"
+                    value={dealForm.company}
+                    onChange={(e) => handleDealFormChange("company", e.target.value)}
+                    placeholder="Company name"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Deal value (₹) *</label>
+                  <input
+                    type="text"
+                    value={dealForm.dealValue}
+                    onChange={(e) => handleDealFormChange("dealValue", e.target.value)}
+                    placeholder="0"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Stage</label>
+                  <select
+                    value={dealForm.stage}
+                    onChange={(e) => handleDealFormChange("stage", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {STAGES.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Probability (%)</label>
+                  <input
+                    type="text"
+                    value={dealForm.probability}
+                    onChange={(e) => handleDealFormChange("probability", e.target.value)}
+                    placeholder="10"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Product / Service</label>
+                  <input
+                    type="text"
+                    value={dealForm.productService}
+                    onChange={(e) => handleDealFormChange("productService", e.target.value)}
+                    placeholder="Product or service name"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Owner</label>
+                  <select
+                    value={dealForm.owner}
+                    onChange={(e) => handleDealFormChange("owner", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {OWNERS.map((o) => (
+                      <option key={o.initials} value={o.name}>{o.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Lead source</label>
+                  <select
+                    value={dealForm.leadSource}
+                    onChange={(e) => handleDealFormChange("leadSource", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {LEAD_SOURCES.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Expected close date</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={dealForm.expectedCloseDate}
+                      onChange={(e) => handleDealFormChange("expectedCloseDate", e.target.value)}
+                      placeholder="dd-mm-yyyy"
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm pr-10"
+                    />
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={2} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Follow-up date</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={dealForm.followUpDate}
+                      onChange={(e) => handleDealFormChange("followUpDate", e.target.value)}
+                      placeholder="dd-mm-yyyy"
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm pr-10"
+                    />
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={2} />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Industry</label>
+                  <select
+                    value={dealForm.industry}
+                    onChange={(e) => handleDealFormChange("industry", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {INDUSTRIES.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">City</label>
+                  <input
+                    type="text"
+                    value={dealForm.city}
+                    onChange={(e) => handleDealFormChange("city", e.target.value)}
+                    placeholder="City"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Notes</label>
+                  <textarea
+                    value={dealForm.notes}
+                    onChange={(e) => handleDealFormChange("notes", e.target.value)}
+                    placeholder="Notes"
+                    rows={3}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm resize-y min-h-[80px]"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-white">
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDeal}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+              >
+                <Save className="w-4 h-4" strokeWidth={2} />
+                Save Deal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

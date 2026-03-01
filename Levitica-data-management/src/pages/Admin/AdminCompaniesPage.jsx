@@ -4,9 +4,23 @@ import {
   Plus,
   Pencil,
   Trash2,
+  X,
+  Save,
 } from "lucide-react";
 
+const INDUSTRIES = ["Technology", "Consulting", "Retail", "Healthcare", "Education", "Finance", "Manufacturing", "Other"];
+const COUNTRIES = ["India", "USA", "UK", "UAE", "Singapore", "Other"];
+const STATUS_OPTIONS = ["Lead", "Prospect", "Customer"];
+const OWNERS = [
+  { name: "Priya Nair", initials: "PN" },
+  { name: "Vikram Joshi", initials: "VJ" },
+  { name: "Meena Reddy", initials: "MR" },
+  { name: "Aditya Kumar", initials: "AK" },
+  { name: "Kavya Shah", initials: "KS" },
+];
+
 const STATUS_STYLES = {
+  Lead: "bg-blue-100 text-blue-700",
   Customer: "bg-emerald-100 text-emerald-700",
   Prospect: "bg-amber-100 text-amber-700",
 };
@@ -18,9 +32,25 @@ const INITIAL_COMPANIES = [
   { id: 4, name: "MediCore India", description: "Healthcare leader", industry: "Healthcare", city: "Ahmedabad", website: "medicore.in", employees: "350", annualRevenue: "₹8,00,00,000", status: "Customer", owner: "Aditya Kumar", ownerInitials: "AK", contacts: 1, deals: 1 },
 ];
 
+const initialCompanyForm = {
+  companyName: "",
+  industry: "Technology",
+  website: "",
+  phone: "",
+  city: "",
+  country: "India",
+  employees: "0",
+  annualRevenue: "0",
+  status: "Lead",
+  owner: "Priya Nair",
+  notes: "",
+};
+
 export default function AdminCompaniesPage() {
   const [companies, setCompanies] = useState(INITIAL_COMPANIES);
   const [search, setSearch] = useState("");
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [companyForm, setCompanyForm] = useState(initialCompanyForm);
 
   const filtered = companies.filter(
     (row) =>
@@ -32,6 +62,41 @@ export default function AdminCompaniesPage() {
 
   const handleDelete = (id) => {
     setCompanies((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const handleCompanyFormChange = (field, value) => {
+    setCompanyForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveCompany = () => {
+    const { companyName, industry, website, phone, city, country, employees, annualRevenue, status, owner, notes } = companyForm;
+    if (!companyName.trim()) return;
+    const ownerEntry = OWNERS.find((o) => o.name === owner) || OWNERS[0];
+    const revenueVal = annualRevenue.trim() || "0";
+    const revenueDisplay = revenueVal === "0" ? "₹0" : `₹${Number(revenueVal).toLocaleString("en-IN")}`;
+    const newCompany = {
+      id: Math.max(0, ...companies.map((c) => c.id)) + 1,
+      name: companyName.trim(),
+      description: notes.trim().slice(0, 50) || "—",
+      industry,
+      city: city.trim() || "—",
+      website: website.trim() || "—",
+      employees: employees.trim() || "0",
+      annualRevenue: revenueDisplay,
+      status,
+      owner: ownerEntry.name,
+      ownerInitials: ownerEntry.initials,
+      contacts: 0,
+      deals: 0,
+    };
+    setCompanies((prev) => [newCompany, ...prev]);
+    setCompanyForm(initialCompanyForm);
+    setAddModalOpen(false);
+  };
+
+  const closeAddModal = () => {
+    setAddModalOpen(false);
+    setCompanyForm(initialCompanyForm);
   };
 
   return (
@@ -56,6 +121,7 @@ export default function AdminCompaniesPage() {
           </button>
           <button
             type="button"
+            onClick={() => setAddModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -156,6 +222,166 @@ export default function AdminCompaniesPage() {
           )}
         </div>
       </div>
+
+      {/* New Company Modal */}
+      {addModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+              <h2 className="text-lg font-bold text-brand-dark">New Company</h2>
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-4 border-b border-brand/30 pb-2">Company Info</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Company name *</label>
+                  <input
+                    type="text"
+                    value={companyForm.companyName}
+                    onChange={(e) => handleCompanyFormChange("companyName", e.target.value)}
+                    placeholder="Company name"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Industry</label>
+                  <select
+                    value={companyForm.industry}
+                    onChange={(e) => handleCompanyFormChange("industry", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {INDUSTRIES.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Website</label>
+                  <input
+                    type="text"
+                    value={companyForm.website}
+                    onChange={(e) => handleCompanyFormChange("website", e.target.value)}
+                    placeholder="company.com"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Phone</label>
+                  <input
+                    type="text"
+                    value={companyForm.phone}
+                    onChange={(e) => handleCompanyFormChange("phone", e.target.value)}
+                    placeholder="Main office phone"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">City</label>
+                  <input
+                    type="text"
+                    value={companyForm.city}
+                    onChange={(e) => handleCompanyFormChange("city", e.target.value)}
+                    placeholder="City"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Country</label>
+                  <select
+                    value={companyForm.country}
+                    onChange={(e) => handleCompanyFormChange("country", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {COUNTRIES.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Employees</label>
+                  <input
+                    type="text"
+                    value={companyForm.employees}
+                    onChange={(e) => handleCompanyFormChange("employees", e.target.value)}
+                    placeholder="0"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Annual revenue (₹)</label>
+                  <input
+                    type="text"
+                    value={companyForm.annualRevenue}
+                    onChange={(e) => handleCompanyFormChange("annualRevenue", e.target.value)}
+                    placeholder="0"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Status</label>
+                  <select
+                    value={companyForm.status}
+                    onChange={(e) => handleCompanyFormChange("status", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Owner</label>
+                  <select
+                    value={companyForm.owner}
+                    onChange={(e) => handleCompanyFormChange("owner", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {OWNERS.map((o) => (
+                      <option key={o.initials} value={o.name}>{o.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Notes</label>
+                  <textarea
+                    value={companyForm.notes}
+                    onChange={(e) => handleCompanyFormChange("notes", e.target.value)}
+                    placeholder="Notes"
+                    rows={3}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm resize-y min-h-[80px]"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-white">
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveCompany}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+              >
+                <Save className="w-4 h-4" strokeWidth={2} />
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

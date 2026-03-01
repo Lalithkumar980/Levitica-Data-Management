@@ -1,5 +1,5 @@
 import React from "react";
-import { Zap, User, Banknote, Users, Bell, UserPlus, BadgeCheck, Clock, UserCheck } from "lucide-react";
+import { Zap, User, Banknote, Users, Bell } from "lucide-react";
 
 const RECENT_ACTIVITY = [
   { type: "joined", title: "Deepak Rao", subtitle: "HR Executive · 2025-03-01", icon: "person" },
@@ -41,47 +41,27 @@ export default function DashboardOverview() {
       </header>
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
-        {/* Four stat cards - icon left, content right */}
+        {/* Four stat cards - same style as Activity Log page */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="rounded-2xl bg-[#1e3a5f] text-white p-5 shadow-md flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <UserPlus className="w-7 h-7" strokeWidth={2} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white/90 uppercase tracking-wider mb-0.5">My Candidates</p>
-              <p className="text-2xl font-bold">3</p>
-              <p className="text-xs text-white/75 mt-0.5">Total in pipeline</p>
-            </div>
+          <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm border-l-4 border-l-brand">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">My Candidates</p>
+            <p className="text-lg font-bold text-brand-dark">3</p>
+            <p className="text-xs text-gray-500 mt-0.5">Total in pipeline</p>
           </div>
-          <div className="rounded-2xl bg-[#0d9488] text-white p-5 shadow-md flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <BadgeCheck className="w-7 h-7" strokeWidth={2} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white/90 uppercase tracking-wider mb-0.5">Offers Done</p>
-              <p className="text-2xl font-bold">2</p>
-              <p className="text-xs text-white/80 mt-0.5">Offers accepted</p>
-            </div>
+          <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm border-l-4 border-l-teal-500">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Offers Done</p>
+            <p className="text-lg font-bold text-teal-600">2</p>
+            <p className="text-xs text-gray-500 mt-0.5">Offers accepted</p>
           </div>
-          <div className="rounded-2xl bg-[#ea580c] text-white p-5 shadow-md flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <Clock className="w-7 h-7" strokeWidth={2} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white/90 uppercase tracking-wider mb-0.5">Offers Pending</p>
-              <p className="text-2xl font-bold">1</p>
-              <p className="text-xs text-white/80 mt-0.5">Awaiting response</p>
-            </div>
+          <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm border-l-4 border-l-orange-500">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Offers Pending</p>
+            <p className="text-lg font-bold text-orange-600">1</p>
+            <p className="text-xs text-gray-500 mt-0.5">Awaiting response</p>
           </div>
-          <div className="rounded-2xl bg-[#6d28d9] text-white p-5 shadow-md flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <UserCheck className="w-7 h-7" strokeWidth={2} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white/90 uppercase tracking-wider mb-0.5">Joined</p>
-              <p className="text-2xl font-bold">1</p>
-              <p className="text-xs text-white/80 mt-0.5">Onboarded</p>
-            </div>
+          <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm border-l-4 border-l-violet-500">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Joined</p>
+            <p className="text-lg font-bold text-violet-600">1</p>
+            <p className="text-xs text-gray-500 mt-0.5">Onboarded</p>
           </div>
         </div>
 

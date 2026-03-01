@@ -7,7 +7,23 @@ import {
   Check,
   FileText,
   Clock,
+  X,
+  Save,
+  Calendar,
 } from "lucide-react";
+
+const ACTIVITY_TYPES = ["Call", "Email", "Meeting"];
+const CALL_OUTCOMES = ["—", "Voicemail", "Connected - Interested", "Callback Requested", "No Answer", "Other"];
+const REPS = [
+  { name: "Priya Nair", initials: "PN" },
+  { name: "Vikram Joshi", initials: "VJ" },
+  { name: "Meena Reddy", initials: "MR" },
+  { name: "Aditya Kumar", initials: "AK" },
+  { name: "Kavya Shah", initials: "KS" },
+];
+const LINKED_DEALS = ["— None —", "TechNova Enterprise License", "GreenPath Consulting Module", "Horizon Retail Integration", "MediCore Healthcare Module", "EduLeap Education Suite", "FinPlex SaaS Starter"];
+const LINKED_CONTACTS = ["— None —", "Suresh Rajan", "Meena Joshi", "Deepak Verma", "Priya Nair", "Arun Krishnan"];
+const FOLLOW_UP_TYPES = ["Call", "Email", "Meeting", "Follow-up"];
 
 const TYPE_STYLES = {
   Call: "bg-blue-100 text-blue-700",
@@ -44,6 +60,22 @@ const INITIAL_FOLLOWUP_TASKS = [
   { id: 5, type: "Follow-up", subject: "Check in with TechNova renewal", company: "TechNova Pvt Ltd", dueDate: "2025-03-15", priority: "Medium", status: "Pending", rep: "Vikram Joshi", repInitials: "VJ", deal: "TechNova Enterprise License" },
 ];
 
+const initialActivityForm = {
+  activityType: "Call",
+  date: "",
+  subject: "",
+  company: "",
+  duration: "0",
+  callOutcome: "—",
+  rep: "Priya Nair",
+  linkedDeal: "— None —",
+  linkedContact: "— None —",
+  callRecording: "",
+  notes: "",
+  scheduleFollowUp: "",
+  followUpType: "Call",
+};
+
 export default function AdminActivityLogPage() {
   const [activities, setActivities] = useState(INITIAL_ACTIVITIES);
   const [followUpTasks, setFollowUpTasks] = useState(INITIAL_FOLLOWUP_TASKS);
@@ -51,6 +83,8 @@ export default function AdminActivityLogPage() {
   const [typeFilter, setTypeFilter] = useState("All Types");
   const [taskSearch, setTaskSearch] = useState("");
   const [activeTab, setActiveTab] = useState("log"); // "log" | "followups"
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [activityForm, setActivityForm] = useState(initialActivityForm);
 
   const filtered = activities.filter((row) => {
     const matchSearch =
@@ -93,6 +127,62 @@ export default function AdminActivityLogPage() {
     );
   };
 
+  const toYyyyMmDd = (ddMmYyyy) => {
+    if (!ddMmYyyy || !/^\d{2}-\d{2}-\d{4}$/.test(ddMmYyyy)) return ddMmYyyy || "";
+    const [d, m, y] = ddMmYyyy.split("-");
+    return `${y}-${m}-${d}`;
+  };
+
+  const handleActivityFormChange = (field, value) => {
+    setActivityForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveActivity = () => {
+    const { activityType, date, subject, company, duration, callOutcome, rep, linkedDeal, linkedContact, callRecording, notes, scheduleFollowUp, followUpType } = activityForm;
+    if (!subject.trim() || !notes.trim()) return;
+    const repEntry = REPS.find((r) => r.name === rep) || REPS[0];
+    const activityDate = toYyyyMmDd(date) || new Date().toISOString().slice(0, 10);
+    const dealLinked = linkedDeal === "— None —" ? "" : linkedDeal;
+    const durationDisplay = duration && duration !== "0" ? `${duration}min` : "";
+    const newActivity = {
+      id: Math.max(0, ...activities.map((a) => a.id)) + 1,
+      type: activityType,
+      subject: subject.trim(),
+      company: company.trim() || "—",
+      outcome: callOutcome === "—" ? "" : callOutcome,
+      duration: durationDisplay,
+      rep: repEntry.name,
+      repInitials: repEntry.initials,
+      dealLinked: dealLinked || "—",
+      date: activityDate,
+      recording: callRecording.trim() || "",
+    };
+    setActivities((prev) => [newActivity, ...prev]);
+    if (scheduleFollowUp && toYyyyMmDd(scheduleFollowUp)) {
+      const followUpDate = toYyyyMmDd(scheduleFollowUp);
+      const newTask = {
+        id: Math.max(0, ...followUpTasks.map((t) => t.id)) + 1,
+        type: followUpType,
+        subject: `Follow-up: ${subject.trim()}`,
+        company: company.trim() || "—",
+        dueDate: followUpDate,
+        priority: "Medium",
+        status: "Pending",
+        rep: repEntry.name,
+        repInitials: repEntry.initials,
+        deal: dealLinked || "—",
+      };
+      setFollowUpTasks((prev) => [newTask, ...prev]);
+    }
+    setActivityForm(initialActivityForm);
+    setAddModalOpen(false);
+  };
+
+  const closeAddModal = () => {
+    setAddModalOpen(false);
+    setActivityForm(initialActivityForm);
+  };
+
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
@@ -115,6 +205,7 @@ export default function AdminActivityLogPage() {
           </button>
           <button
             type="button"
+            onClick={() => setAddModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -385,6 +476,205 @@ export default function AdminActivityLogPage() {
           </div>
         )}
       </div>
+
+      {/* Log Activity Modal */}
+      {addModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+              <h2 className="text-lg font-bold text-brand-dark">Log Activity</h2>
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-6">
+              {/* Activity Details */}
+              <div>
+                <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-4 border-b border-brand/30 pb-2">Activity Details</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Activity type *</label>
+                    <select
+                      value={activityForm.activityType}
+                      onChange={(e) => handleActivityFormChange("activityType", e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                    >
+                      {ACTIVITY_TYPES.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Date *</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={activityForm.date}
+                        onChange={(e) => handleActivityFormChange("date", e.target.value)}
+                        placeholder="dd-mm-yyyy"
+                        className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm pr-10"
+                      />
+                      <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={2} />
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Subject *</label>
+                    <input
+                      type="text"
+                      value={activityForm.subject}
+                      onChange={(e) => handleActivityFormChange("subject", e.target.value)}
+                      placeholder="Brief activity title"
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Company</label>
+                    <input
+                      type="text"
+                      value={activityForm.company}
+                      onChange={(e) => handleActivityFormChange("company", e.target.value)}
+                      placeholder="Company name"
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Duration (mins)</label>
+                    <input
+                      type="text"
+                      value={activityForm.duration}
+                      onChange={(e) => handleActivityFormChange("duration", e.target.value)}
+                      placeholder="0"
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Call outcome</label>
+                    <select
+                      value={activityForm.callOutcome}
+                      onChange={(e) => handleActivityFormChange("callOutcome", e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                    >
+                      {CALL_OUTCOMES.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Rep</label>
+                    <select
+                      value={activityForm.rep}
+                      onChange={(e) => handleActivityFormChange("rep", e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                    >
+                      {REPS.map((r) => (
+                        <option key={r.initials} value={r.name}>{r.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Linked deal</label>
+                    <select
+                      value={activityForm.linkedDeal}
+                      onChange={(e) => handleActivityFormChange("linkedDeal", e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                    >
+                      {LINKED_DEALS.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Linked contact</label>
+                    <select
+                      value={activityForm.linkedContact}
+                      onChange={(e) => handleActivityFormChange("linkedContact", e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                    >
+                      {LINKED_CONTACTS.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Call recording (filename)</label>
+                    <input
+                      type="text"
+                      value={activityForm.callRecording}
+                      onChange={(e) => handleActivityFormChange("callRecording", e.target.value)}
+                      placeholder="call-recording-01.mp3"
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Notes *</label>
+                    <textarea
+                      value={activityForm.notes}
+                      onChange={(e) => handleActivityFormChange("notes", e.target.value)}
+                      placeholder="Notes"
+                      rows={3}
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm resize-y min-h-[80px]"
+                    />
+                  </div>
+                </div>
+              </div>
+              {/* Follow-up Task */}
+              <div>
+                <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-4 border-b border-brand/30 pb-2">Follow-up Task</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Schedule follow-up</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={activityForm.scheduleFollowUp}
+                        onChange={(e) => handleActivityFormChange("scheduleFollowUp", e.target.value)}
+                        placeholder="dd-mm-yyyy"
+                        className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm pr-10"
+                      />
+                      <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={2} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Follow-up type</label>
+                    <select
+                      value={activityForm.followUpType}
+                      onChange={(e) => handleActivityFormChange("followUpType", e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                    >
+                      {FOLLOW_UP_TYPES.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-white">
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveActivity}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+              >
+                <Save className="w-4 h-4" strokeWidth={2} />
+                Save Activity
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

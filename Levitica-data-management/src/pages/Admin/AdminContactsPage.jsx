@@ -4,7 +4,20 @@ import {
   Plus,
   Pencil,
   Trash2,
+  X,
+  Save,
+  Calendar,
 } from "lucide-react";
+
+const STATUS_OPTIONS = ["Lead", "Prospect", "Customer"];
+const LEAD_SOURCES = ["Website", "Referral", "Cold Call", "LinkedIn", "Event/Trade Show"];
+const OWNERS = [
+  { name: "Priya Nair", initials: "PN" },
+  { name: "Vikram Joshi", initials: "VJ" },
+  { name: "Meena Reddy", initials: "MR" },
+  { name: "Aditya Kumar", initials: "AK" },
+  { name: "Kavya Shah", initials: "KS" },
+];
 
 const STATUS_STYLES = {
   Customer: "bg-emerald-100 text-emerald-700",
@@ -28,10 +41,29 @@ const INITIAL_CONTACTS = [
   { id: 5, name: "Arun Krishnan", initials: "AK", company: "MediCore India", title: "CFO", phone: "9654321870", email: "arun@medicore.in", city: "Ahmedabad", status: "Lead", source: "LinkedIn", owner: "Aditya Kumar", ownerInitials: "AK", lastContact: "2025-02-10" },
 ];
 
+const initialContactForm = {
+  firstName: "",
+  lastName: "",
+  company: "",
+  jobTitle: "",
+  phone: "",
+  email: "",
+  city: "",
+  country: "India",
+  status: "Lead",
+  leadSource: "Website",
+  owner: "Priya Nair",
+  lastContactDate: "",
+  tags: "",
+  notes: "",
+};
+
 export default function AdminContactsPage() {
   const [contacts, setContacts] = useState(INITIAL_CONTACTS);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [contactForm, setContactForm] = useState(initialContactForm);
 
   const filtered = contacts.filter((row) => {
     const matchSearch =
@@ -52,6 +84,52 @@ export default function AdminContactsPage() {
 
   const handleDelete = (id) => {
     setContacts((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const handleContactFormChange = (field, value) => {
+    setContactForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const getInitials = (first, last) => {
+    const a = (first || "").trim().slice(0, 1).toUpperCase();
+    const b = (last || "").trim().slice(0, 1).toUpperCase();
+    return (a + b) || "—";
+  };
+
+  const handleSaveContact = () => {
+    const { firstName, lastName, company, jobTitle, phone, email, city, status, leadSource, owner, lastContactDate } = contactForm;
+    if (!firstName.trim() || !lastName.trim() || !phone.trim()) return;
+    const ownerEntry = OWNERS.find((o) => o.name === owner) || OWNERS[0];
+    const name = `${firstName.trim()} ${lastName.trim()}`;
+    let lastContact = lastContactDate;
+    if (lastContact && /^\d{2}-\d{2}-\d{4}$/.test(lastContact)) {
+      const [d, m, y] = lastContact.split("-");
+      lastContact = `${y}-${m}-${d}`;
+    }
+    if (!lastContact) lastContact = new Date().toISOString().slice(0, 10);
+    const newContact = {
+      id: Math.max(0, ...contacts.map((c) => c.id)) + 1,
+      name,
+      initials: getInitials(firstName, lastName),
+      company: company.trim() || "—",
+      title: jobTitle.trim() || "—",
+      phone: phone.trim(),
+      email: email.trim() || "—",
+      city: city.trim() || "—",
+      status,
+      source: leadSource,
+      owner: ownerEntry.name,
+      ownerInitials: ownerEntry.initials,
+      lastContact,
+    };
+    setContacts((prev) => [newContact, ...prev]);
+    setContactForm(initialContactForm);
+    setAddModalOpen(false);
+  };
+
+  const closeAddModal = () => {
+    setAddModalOpen(false);
+    setContactForm(initialContactForm);
   };
 
   return (
@@ -76,6 +154,7 @@ export default function AdminContactsPage() {
           </button>
           <button
             type="button"
+            onClick={() => setAddModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -213,6 +292,197 @@ export default function AdminContactsPage() {
           )}
         </div>
       </div>
+
+      {/* New Contact Modal */}
+      {addModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+              <h2 className="text-lg font-bold text-brand-dark">New Contact</h2>
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-4 border-b border-brand/30 pb-2">Contact Details</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">First name *</label>
+                  <input
+                    type="text"
+                    value={contactForm.firstName}
+                    onChange={(e) => handleContactFormChange("firstName", e.target.value)}
+                    placeholder="First name"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Last name *</label>
+                  <input
+                    type="text"
+                    value={contactForm.lastName}
+                    onChange={(e) => handleContactFormChange("lastName", e.target.value)}
+                    placeholder="Last name"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Company</label>
+                  <input
+                    type="text"
+                    value={contactForm.company}
+                    onChange={(e) => handleContactFormChange("company", e.target.value)}
+                    placeholder="Company"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Job title</label>
+                  <input
+                    type="text"
+                    value={contactForm.jobTitle}
+                    onChange={(e) => handleContactFormChange("jobTitle", e.target.value)}
+                    placeholder="CEO, CTO..."
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Phone *</label>
+                  <input
+                    type="text"
+                    value={contactForm.phone}
+                    onChange={(e) => handleContactFormChange("phone", e.target.value)}
+                    placeholder="+91 xxxxx xxxxx"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Email</label>
+                  <input
+                    type="email"
+                    value={contactForm.email}
+                    onChange={(e) => handleContactFormChange("email", e.target.value)}
+                    placeholder="email@company.com"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">City</label>
+                  <input
+                    type="text"
+                    value={contactForm.city}
+                    onChange={(e) => handleContactFormChange("city", e.target.value)}
+                    placeholder="City"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Country</label>
+                  <input
+                    type="text"
+                    value={contactForm.country}
+                    onChange={(e) => handleContactFormChange("country", e.target.value)}
+                    placeholder="Country"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Status</label>
+                  <select
+                    value={contactForm.status}
+                    onChange={(e) => handleContactFormChange("status", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Lead source</label>
+                  <select
+                    value={contactForm.leadSource}
+                    onChange={(e) => handleContactFormChange("leadSource", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {LEAD_SOURCES.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Owner</label>
+                  <select
+                    value={contactForm.owner}
+                    onChange={(e) => handleContactFormChange("owner", e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
+                  >
+                    {OWNERS.map((o) => (
+                      <option key={o.initials} value={o.name}>{o.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Last contact date</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={contactForm.lastContactDate}
+                      onChange={(e) => handleContactFormChange("lastContactDate", e.target.value)}
+                      placeholder="dd-mm-yyyy"
+                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm pr-10"
+                    />
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={2} />
+                  </div>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Tags (comma sep)</label>
+                  <input
+                    type="text"
+                    value={contactForm.tags}
+                    onChange={(e) => handleContactFormChange("tags", e.target.value)}
+                    placeholder="enterprise, tech"
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Notes</label>
+                  <textarea
+                    value={contactForm.notes}
+                    onChange={(e) => handleContactFormChange("notes", e.target.value)}
+                    placeholder="Notes"
+                    rows={3}
+                    className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm resize-y min-h-[80px]"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-white">
+              <button
+                type="button"
+                onClick={closeAddModal}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveContact}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+              >
+                <Save className="w-4 h-4" strokeWidth={2} />
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

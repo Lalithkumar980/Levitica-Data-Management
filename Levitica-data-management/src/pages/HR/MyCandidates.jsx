@@ -366,7 +366,7 @@ export default function MyCandidates() {
       <AddCandidateModal open={addModalOpen} onClose={() => setAddModalOpen(false)} onSave={handleAddCandidate} />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
-        {/* Summary cards */}
+        {/* Summary cards - same style as HR Dashboard / Activity Log */}
         {(() => {
           const total = candidates.length;
           const came = candidates.filter((c) => c.came === "Yes").length;
@@ -376,31 +376,31 @@ export default function MyCandidates() {
           const rejected = candidates.filter((c) => c.offer === "Rejected").length;
           const cameRate = total ? Math.round((came / total) * 100) : 0;
           return (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-              <div className="rounded-xl bg-white border border-gray-100 p-4 shadow-sm">
-                <p className="text-xs font-medium text-body uppercase tracking-wider mb-1">Total</p>
-                <p className="text-2xl font-bold text-brand">{total}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+              <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm border-l-4 border-l-brand">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Total</p>
+                <p className="text-lg font-bold text-brand-dark">{total}</p>
               </div>
-              <div className="rounded-xl bg-white border border-gray-100 p-4 shadow-sm">
-                <p className="text-xs font-medium text-body uppercase tracking-wider mb-1">Came for Interview</p>
-                <p className="text-2xl font-bold text-success">{came}</p>
-                <p className="text-xs text-body mt-0.5">{cameRate}% rate</p>
+              <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm border-l-4 border-l-teal-500">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Came for Interview</p>
+                <p className="text-lg font-bold text-teal-600">{came}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{cameRate}% rate</p>
               </div>
-              <div className="rounded-xl bg-white border border-gray-100 p-4 shadow-sm">
-                <p className="text-xs font-medium text-body uppercase tracking-wider mb-1">Offers Done</p>
-                <p className="text-2xl font-bold text-success">{offersDone}</p>
+              <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm border-l-4 border-l-emerald-500">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Offers Done</p>
+                <p className="text-lg font-bold text-emerald-600">{offersDone}</p>
               </div>
-              <div className="rounded-xl bg-white border border-gray-100 p-4 shadow-sm">
-                <p className="text-xs font-medium text-body uppercase tracking-wider mb-1">Offer Pending</p>
-                <p className="text-2xl font-bold text-warning">{offerPending}</p>
+              <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm border-l-4 border-l-orange-500">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Offer Pending</p>
+                <p className="text-lg font-bold text-orange-600">{offerPending}</p>
               </div>
-              <div className="rounded-xl bg-white border border-gray-100 p-4 shadow-sm">
-                <p className="text-xs font-medium text-body uppercase tracking-wider mb-1">Joined</p>
-                <p className="text-2xl font-bold text-success">{joined}</p>
+              <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm border-l-4 border-l-violet-500">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Joined</p>
+                <p className="text-lg font-bold text-violet-600">{joined}</p>
               </div>
-              <div className="rounded-xl bg-white border border-gray-100 p-4 shadow-sm">
-                <p className="text-xs font-medium text-body uppercase tracking-wider mb-1">Rejected</p>
-                <p className="text-2xl font-bold text-danger">{rejected}</p>
+              <div className="rounded-2xl bg-white border border-gray-100 p-4 shadow-sm border-l-4 border-l-rose-500">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Rejected</p>
+                <p className="text-lg font-bold text-rose-600">{rejected}</p>
               </div>
             </div>
           );
