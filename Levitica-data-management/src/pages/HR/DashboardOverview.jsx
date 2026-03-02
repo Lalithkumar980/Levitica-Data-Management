@@ -1,5 +1,5 @@
 import React from "react";
-import { Zap, User, Banknote, Users, Bell, FileCheck, Clock, UserCheck } from "lucide-react";
+import { Zap, User, Banknote, Users, Bell, FileCheck, Clock, UserCheck, LayoutDashboard } from "lucide-react";
 
 const RECENT_ACTIVITY = [
   { type: "joined", title: "Deepak Rao", subtitle: "HR Executive · 2025-03-01", icon: "person" },
@@ -23,7 +23,15 @@ export default function DashboardOverview() {
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
-        <h1 className="text-lg font-semibold text-brand-dark">Dashboard / Overview</h1>
+        <div className="flex items-start gap-3">
+          <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0" aria-hidden>
+            <LayoutDashboard className="w-5 h-5" strokeWidth={2} />
+          </span>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <h1 className="text-lg font-semibold text-brand-dark leading-tight">Dashboard</h1>
+            <p className="text-sm text-body leading-snug">Overview of candidates, pipeline stages, and recent activity.</p>
+          </div>
+        </div>
         <div className="flex items-center gap-3">
           <input
             type="search"

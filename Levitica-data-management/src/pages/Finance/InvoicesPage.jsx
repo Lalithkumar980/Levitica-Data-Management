@@ -291,9 +291,14 @@ export default function InvoicesPage() {
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
-        <div>
-          <h1 className="text-lg font-semibold text-brand-dark">Invoices</h1>
-          <p className="text-sm text-body">/ Billing &amp; Collections</p>
+        <div className="flex items-start gap-3">
+          <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0" aria-hidden>
+            <FileText className="w-5 h-5" strokeWidth={2} />
+          </span>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <h1 className="text-lg font-semibold text-brand-dark leading-tight">Invoices</h1>
+            <p className="text-sm text-body leading-snug">Create and manage invoices, billing, and collections.</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <input
