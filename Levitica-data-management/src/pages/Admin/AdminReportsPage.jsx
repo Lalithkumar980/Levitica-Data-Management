@@ -162,20 +162,20 @@ export default function AdminReportsPage() {
               </button>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[320px] text-sm table-fixed">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Stage</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-600">Count</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-600">Value</th>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Stage</th>
+                    <th className="text-right py-3 px-3 font-semibold text-gray-600">Count</th>
+                    <th className="text-right py-3 px-3 font-semibold text-gray-600">Value</th>
                   </tr>
                 </thead>
                 <tbody>
                   {PIPELINE_BY_STAGE.map((row, idx) => (
-                    <tr key={idx} className="border-b border-gray-50">
-                      <td className="py-3 px-4 font-medium text-brand-dark">{row.stage}</td>
-                      <td className="py-3 px-4 text-right text-body">{row.count}</td>
-                      <td className="py-3 px-4 text-right font-medium text-body">{row.value}</td>
+                    <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                      <td className="py-3 px-3 font-medium text-brand-dark">{row.stage}</td>
+                      <td className="py-3 px-3 text-right text-body tabular-nums">{row.count}</td>
+                      <td className="py-3 px-3 text-right font-medium text-body tabular-nums">{row.value}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -220,37 +220,37 @@ export default function AdminReportsPage() {
             </button>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px] text-sm">
+            <table className="w-max min-w-[800px] text-sm table-fixed">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Rep</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-600">Total Deals</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-600">Won</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-600">Won Value</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-600">Pipeline Value</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-600">Win Rate</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-600">Calls</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-600">Emails</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Rep</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Total Deals</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Won</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Won Value</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Pipeline Value</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Win Rate</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Calls</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Emails</th>
                 </tr>
               </thead>
               <tbody>
                 {REP_PERFORMANCE.map((row, idx) => (
-                  <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
+                  <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2 min-w-0">
                         <span className="w-8 h-8 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-xs shrink-0">
                           {row.initials}
                         </span>
-                        <span className="font-medium text-brand-dark">{row.name}</span>
+                        <span className="font-medium text-brand-dark truncate min-w-0" title={row.name}>{row.name}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-right text-body">{row.totalDeals}</td>
-                    <td className="py-3 px-4 text-right text-body">{row.won}</td>
-                    <td className="py-3 px-4 text-right font-medium text-body">{row.wonValue}</td>
-                    <td className="py-3 px-4 text-right text-body">{row.pipelineValue}</td>
-                    <td className="py-3 px-4 text-right font-medium text-body">{row.winRate}</td>
-                    <td className="py-3 px-4 text-right text-body">{row.callsLogged}</td>
-                    <td className="py-3 px-4 text-right text-body">{row.emailsLogged}</td>
+                    <td className="py-3 px-3 text-right text-body tabular-nums">{row.totalDeals}</td>
+                    <td className="py-3 px-3 text-right text-body tabular-nums">{row.won}</td>
+                    <td className="py-3 px-3 text-right font-medium text-body tabular-nums">{row.wonValue}</td>
+                    <td className="py-3 px-3 text-right text-body tabular-nums">{row.pipelineValue}</td>
+                    <td className="py-3 px-3 text-right font-medium text-body tabular-nums">{row.winRate}</td>
+                    <td className="py-3 px-3 text-right text-body tabular-nums">{row.callsLogged}</td>
+                    <td className="py-3 px-3 text-right text-body tabular-nums">{row.emailsLogged}</td>
                   </tr>
                 ))}
               </tbody>

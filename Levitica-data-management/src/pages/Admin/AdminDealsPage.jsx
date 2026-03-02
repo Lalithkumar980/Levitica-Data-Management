@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "react-toastify";
 import {
   Bell,
   Plus,
@@ -73,6 +74,8 @@ export default function AdminDealsPage() {
   const [ownerFilter, setOwnerFilter] = useState("All Owners");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [dealForm, setDealForm] = useState(initialDealForm);
+  const [editingDeal, setEditingDeal] = useState(null);
+  const [viewingDeal, setViewingDeal] = useState(null);
 
   const filtered = deals.filter((row) => {
     const matchSearch =
@@ -98,7 +101,36 @@ export default function AdminDealsPage() {
 
   const handleDelete = (id) => {
     setDeals((prev) => prev.filter((d) => d.id !== id));
+    toast.success("Deal deleted");
   };
+
+  const toDdMmYyyy = (yyyyMmDd) => {
+    if (!yyyyMmDd || !/^\d{4}-\d{2}-\d{2}$/.test(yyyyMmDd)) return yyyyMmDd || "";
+    const [y, m, d] = yyyyMmDd.split("-");
+    return `${d}-${m}-${y}`;
+  };
+
+  const openEditDeal = (row) => {
+    setDealForm({
+      dealTitle: row.title || "",
+      company: row.company || "",
+      dealValue: (row.value || "").replace(/[₹,\s]/g, "") || "0",
+      stage: row.stage || "Lead",
+      probability: String(row.probability ?? 10),
+      productService: row.product || "",
+      owner: row.owner || OWNERS[0]?.name || "",
+      leadSource: "Website",
+      expectedCloseDate: toDdMmYyyy(row.closeDate) || "",
+      followUpDate: toDdMmYyyy(row.followUp) || "",
+      industry: "Technology",
+      city: row.subtext || "",
+      notes: "",
+    });
+    setEditingDeal(row);
+    setAddModalOpen(true);
+  };
+
+  const openViewDeal = (row) => setViewingDeal(row);
 
   const toYyyyMmDd = (ddMmYyyy) => {
     if (!ddMmYyyy || !/^\d{2}-\d{2}-\d{4}$/.test(ddMmYyyy)) return ddMmYyyy || "";
@@ -119,8 +151,7 @@ export default function AdminDealsPage() {
     const closeDate = toYyyyMmDd(expectedCloseDate) || new Date().toISOString().slice(0, 10);
     const followUp = toYyyyMmDd(followUpDate) || closeDate;
     const today = new Date().toISOString().slice(0, 10);
-    const newDeal = {
-      id: Math.max(0, ...deals.map((d) => d.id)) + 1,
+    const payload = {
       title: dealTitle.trim(),
       subtext: city.trim() || "—",
       company: company.trim(),
@@ -132,9 +163,16 @@ export default function AdminDealsPage() {
       ownerInitials: ownerEntry.initials,
       closeDate,
       followUp,
-      lastActivity: today,
+      lastActivity: editingDeal ? editingDeal.lastActivity : today,
     };
-    setDeals((prev) => [newDeal, ...prev]);
+    if (editingDeal) {
+      setDeals((prev) => prev.map((d) => (d.id === editingDeal.id ? { ...payload, id: d.id } : d)));
+      setEditingDeal(null);
+      toast.success("Deal updated successfully");
+    } else {
+      setDeals((prev) => [{ ...payload, id: Math.max(0, ...deals.map((d) => d.id)) + 1 }, ...prev]);
+      toast.success("Deal added successfully");
+    }
     setDealForm(initialDealForm);
     setAddModalOpen(false);
   };
@@ -142,6 +180,7 @@ export default function AdminDealsPage() {
   const closeAddModal = () => {
     setAddModalOpen(false);
     setDealForm(initialDealForm);
+    setEditingDeal(null);
   };
 
   return (
@@ -166,7 +205,7 @@ export default function AdminDealsPage() {
           </button>
           <button
             type="button"
-            onClick={() => setAddModalOpen(true)}
+            onClick={() => { setEditingDeal(null); setDealForm(initialDealForm); setAddModalOpen(true); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -307,41 +346,41 @@ export default function AdminDealsPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1200px] text-sm">
+            <table className="w-max min-w-[1200px] text-sm table-fixed">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">#</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Deal Title</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Company</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Value</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Stage</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Probability</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Product</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Owner</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Close Date</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Follow-up</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Last Activity</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Actions</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">#</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Deal Title</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Value</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Stage</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Probability</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Product</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Owner</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Close Date</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Follow-up</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Last Activity</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                    <td className="py-4 px-4 text-body">{idx + 1}</td>
-                    <td className="py-4 px-4">
-                      <div>
-                        <p className="font-medium text-brand-dark">{row.title}</p>
-                        <p className="text-xs text-body">{row.subtext}</p>
+                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                    <td className="py-3 px-3 text-body tabular-nums">{idx + 1}</td>
+                    <td className="py-3 px-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-brand-dark truncate" title={row.title}>{row.title}</p>
+                        <p className="text-xs text-body truncate" title={row.subtext}>{row.subtext}</p>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.company}</td>
-                    <td className="py-4 px-4 font-medium text-brand-dark">{row.value}</td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3 text-body truncate" title={row.company}>{row.company}</td>
+                    <td className="py-3 px-3 font-medium text-brand-dark tabular-nums">{row.value}</td>
+                    <td className="py-3 px-3">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${STAGE_STYLES[row.stage] || "bg-gray-100 text-gray-700"}`}>
                         {row.stage}
                       </span>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3">
                       <div className="flex items-center gap-2 min-w-[80px]">
                         <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden max-w-[60px]">
                           <div
@@ -352,30 +391,32 @@ export default function AdminDealsPage() {
                         <span className="text-body text-xs font-medium tabular-nums">{row.probability}%</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.product}</td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
+                    <td className="py-3 px-3 text-body truncate" title={row.product}>{row.product}</td>
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2 min-w-0">
                         <span className="w-8 h-8 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-xs shrink-0">
                           {row.ownerInitials}
                         </span>
-                        <span className="text-body">{row.owner}</span>
+                        <span className="text-body truncate min-w-0" title={row.owner}>{row.owner}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.closeDate}</td>
-                    <td className="py-4 px-4 text-body">{row.followUp}</td>
-                    <td className="py-4 px-4 text-body">{row.lastActivity}</td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-1">
+                    <td className="py-3 px-3 text-body tabular-nums whitespace-nowrap">{row.closeDate}</td>
+                    <td className="py-3 px-3 text-body truncate" title={row.followUp}>{row.followUp}</td>
+                    <td className="py-3 px-3 text-body truncate" title={row.lastActivity}>{row.lastActivity}</td>
+                    <td className="py-3 px-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
-                          className="p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          onClick={() => openEditDeal(row)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="Edit deal"
                         >
                           <Pencil className="w-4 h-4" strokeWidth={2} />
                         </button>
                         <button
                           type="button"
-                          className="p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          onClick={() => openViewDeal(row)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="View deal"
                         >
                           <Eye className="w-4 h-4" strokeWidth={2} />
@@ -383,7 +424,7 @@ export default function AdminDealsPage() {
                         <button
                           type="button"
                           onClick={() => handleDelete(row.id)}
-                          className="p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
                           aria-label="Delete deal"
                         >
                           <Trash2 className="w-4 h-4" strokeWidth={2} />
@@ -407,7 +448,7 @@ export default function AdminDealsPage() {
           <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
           <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-              <h2 className="text-lg font-bold text-brand-dark">New Deal</h2>
+              <h2 className="text-lg font-bold text-brand-dark">{editingDeal ? "Edit Deal" : "New Deal"}</h2>
               <button
                 type="button"
                 onClick={closeAddModal}
@@ -580,8 +621,35 @@ export default function AdminDealsPage() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
               >
                 <Save className="w-4 h-4" strokeWidth={2} />
-                Save Deal
+                {editingDeal ? "Save changes" : "Save Deal"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Deal Modal */}
+      {viewingDeal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setViewingDeal(null)} aria-hidden />
+          <div className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-brand-dark">View Deal</h2>
+              <button type="button" onClick={() => setViewingDeal(null)} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Deal Title</span><p className="font-medium text-brand-dark mt-0.5">{viewingDeal.title}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Company</span><p className="text-body mt-0.5">{viewingDeal.company}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Value</span><p className="text-body mt-0.5">{viewingDeal.value}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Stage</span><p className="text-body mt-0.5">{viewingDeal.stage}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Probability</span><p className="text-body mt-0.5">{viewingDeal.probability}%</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Product</span><p className="text-body mt-0.5">{viewingDeal.product}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Owner</span><p className="text-body mt-0.5">{viewingDeal.owner}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Close Date</span><p className="text-body mt-0.5">{viewingDeal.closeDate}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Follow-up</span><p className="text-body mt-0.5">{viewingDeal.followUp}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Last Activity</span><p className="text-body mt-0.5">{viewingDeal.lastActivity}</p></div>
             </div>
           </div>
         </div>

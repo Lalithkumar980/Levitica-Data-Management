@@ -1,9 +1,11 @@
 import React, { useState } from "react";
+import { toast } from "react-toastify";
 import {
   Bell,
   Plus,
   Pencil,
   Trash2,
+  Eye,
   X,
   Save,
   Calendar,
@@ -68,6 +70,8 @@ export default function AdminContactsPage() {
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [contactForm, setContactForm] = useState(initialContactForm);
+  const [editingContact, setEditingContact] = useState(null);
+  const [viewingContact, setViewingContact] = useState(null);
 
   const filtered = contacts.filter((row) => {
     const matchSearch =
@@ -88,7 +92,32 @@ export default function AdminContactsPage() {
 
   const handleDelete = (id) => {
     setContacts((prev) => prev.filter((c) => c.id !== id));
+    toast.success("Contact deleted");
   };
+
+  const openEditContact = (row) => {
+    const parts = (row.name || "").trim().split(/\s+/);
+    setContactForm({
+      firstName: parts[0] || "",
+      lastName: parts.slice(1).join(" ") || "",
+      company: row.company || "",
+      jobTitle: row.title || "",
+      phone: row.phone || "",
+      email: row.email || "",
+      city: row.city || "",
+      country: "India",
+      status: row.status || "Lead",
+      leadSource: row.source || "Website",
+      owner: row.owner || OWNERS[0]?.name || "",
+      lastContactDate: row.lastContact ? row.lastContact.split("-").reverse().join("-") : "",
+      tags: "",
+      notes: "",
+    });
+    setEditingContact(row);
+    setAddModalOpen(true);
+  };
+
+  const openViewContact = (row) => setViewingContact(row);
 
   const handleContactFormChange = (field, value) => {
     setContactForm((prev) => ({ ...prev, [field]: value }));
@@ -111,8 +140,7 @@ export default function AdminContactsPage() {
       lastContact = `${y}-${m}-${d}`;
     }
     if (!lastContact) lastContact = new Date().toISOString().slice(0, 10);
-    const newContact = {
-      id: Math.max(0, ...contacts.map((c) => c.id)) + 1,
+    const payload = {
       name,
       initials: getInitials(firstName, lastName),
       company: company.trim() || "—",
@@ -126,7 +154,14 @@ export default function AdminContactsPage() {
       ownerInitials: ownerEntry.initials,
       lastContact,
     };
-    setContacts((prev) => [newContact, ...prev]);
+    if (editingContact) {
+      setContacts((prev) => prev.map((c) => (c.id === editingContact.id ? { ...payload, id: c.id } : c)));
+      setEditingContact(null);
+      toast.success("Contact updated successfully");
+    } else {
+      setContacts((prev) => [{ ...payload, id: Math.max(0, ...contacts.map((c) => c.id)) + 1 }, ...prev]);
+      toast.success("Contact added successfully");
+    }
     setContactForm(initialContactForm);
     setAddModalOpen(false);
   };
@@ -134,6 +169,7 @@ export default function AdminContactsPage() {
   const closeAddModal = () => {
     setAddModalOpen(false);
     setContactForm(initialContactForm);
+    setEditingContact(null);
   };
 
   return (
@@ -158,7 +194,7 @@ export default function AdminContactsPage() {
           </button>
           <button
             type="button"
-            onClick={() => setAddModalOpen(true)}
+            onClick={() => { setEditingContact(null); setContactForm(initialContactForm); setAddModalOpen(true); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -246,72 +282,81 @@ export default function AdminContactsPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] text-sm">
+            <table className="w-max min-w-[1000px] text-sm table-fixed">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">#</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Name</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Company</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Title</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Phone</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Email</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">City</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Source</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Owner</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Last Contact</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Actions</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">#</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Name</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Title</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Phone</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Email</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">City</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Status</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Source</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Owner</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Last Contact</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                    <td className="py-4 px-4 text-body">{idx + 1}</td>
-                    <td className="py-4 px-4">
+                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                    <td className="py-3 px-3 text-body tabular-nums">{idx + 1}</td>
+                    <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-xs shrink-0">
+                        <span className="w-9 h-9 rounded-full bg-brand-soft flex items-center justify-center text-brand font-semibold text-xs shrink-0">
                           {row.initials}
                         </span>
                         <span className="font-medium text-brand-dark">{row.name}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.company}</td>
-                    <td className="py-4 px-4 text-body">{row.title}</td>
-                    <td className="py-4 px-4 text-body">{row.phone}</td>
-                    <td className="py-4 px-4 text-body">{row.email}</td>
-                    <td className="py-4 px-4 text-body">{row.city}</td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3 text-body truncate" title={row.company}>{row.company}</td>
+                    <td className="py-3 px-3 text-body truncate" title={row.title}>{row.title}</td>
+                    <td className="py-3 px-3 text-body truncate" title={row.phone}>{row.phone}</td>
+                    <td className="py-3 px-3 text-body truncate" title={row.email}>{row.email}</td>
+                    <td className="py-3 px-3 text-body truncate" title={row.city}>{row.city}</td>
+                    <td className="py-3 px-3">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[row.status] || "bg-gray-100 text-gray-700"}`}>
                         {row.status}
                       </span>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${SOURCE_STYLES[row.source] || "bg-gray-100 text-gray-700"}`}>
                         {row.source}
                       </span>
                     </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-full bg-brand/80 flex items-center justify-center text-white font-semibold text-xs shrink-0">
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold text-xs shrink-0">
                           {row.ownerInitials}
                         </span>
-                        <span className="text-body">{row.owner}</span>
+                        <span className="text-body truncate min-w-0" title={row.owner}>{row.owner}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.lastContact}</td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-1">
+                    <td className="py-3 px-3 text-body tabular-nums whitespace-nowrap">{row.lastContact}</td>
+                    <td className="py-3 px-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
-                          className="p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          onClick={() => openEditContact(row)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="Edit contact"
                         >
                           <Pencil className="w-4 h-4" strokeWidth={2} />
                         </button>
                         <button
                           type="button"
+                          onClick={() => openViewContact(row)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          aria-label="View contact"
+                        >
+                          <Eye className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleDelete(row.id)}
-                          className="p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
                           aria-label="Delete contact"
                         >
                           <Trash2 className="w-4 h-4" strokeWidth={2} />
@@ -335,7 +380,7 @@ export default function AdminContactsPage() {
           <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
           <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-              <h2 className="text-lg font-bold text-brand-dark">New Contact</h2>
+              <h2 className="text-lg font-bold text-brand-dark">{editingContact ? "Edit Contact" : "New Contact"}</h2>
               <button
                 type="button"
                 onClick={closeAddModal}
@@ -513,8 +558,35 @@ export default function AdminContactsPage() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
               >
                 <Save className="w-4 h-4" strokeWidth={2} />
-                Save
+                {editingContact ? "Save changes" : "Save"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Contact Modal */}
+      {viewingContact && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setViewingContact(null)} aria-hidden />
+          <div className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-brand-dark">View Contact</h2>
+              <button type="button" onClick={() => setViewingContact(null)} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Name</span><p className="font-medium text-brand-dark mt-0.5">{viewingContact.name}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Company</span><p className="text-body mt-0.5">{viewingContact.company}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Title</span><p className="text-body mt-0.5">{viewingContact.title}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Phone</span><p className="text-body mt-0.5">{viewingContact.phone}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Email</span><p className="text-body mt-0.5">{viewingContact.email}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">City</span><p className="text-body mt-0.5">{viewingContact.city}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Status</span><p className="text-body mt-0.5">{viewingContact.status}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Source</span><p className="text-body mt-0.5">{viewingContact.source}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Owner</span><p className="text-body mt-0.5">{viewingContact.owner}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Last Contact</span><p className="text-body mt-0.5">{viewingContact.lastContact}</p></div>
             </div>
           </div>
         </div>

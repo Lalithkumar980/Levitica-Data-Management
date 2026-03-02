@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "react-toastify";
 import {
   Bell,
   Plus,
@@ -40,6 +41,7 @@ export default function AdminEmailLogPage() {
   const [search, setSearch] = useState("");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [emailForm, setEmailForm] = useState(initialEmailForm);
+  const [editingEmail, setEditingEmail] = useState(null);
 
   const filtered = emails.filter(
     (row) =>
@@ -59,6 +61,20 @@ export default function AdminEmailLogPage() {
 
   const handleDelete = (id) => {
     setEmails((prev) => prev.filter((e) => e.id !== id));
+    toast.success("Email log deleted");
+  };
+
+  const openEditEmail = (row) => {
+    setEmailForm({
+      subject: row.subject || "",
+      date: row.date ? row.date.split("-").reverse().join("-") : "",
+      company: row.company || "",
+      rep: row.rep || "Priya Nair",
+      linkedDeal: row.deal === "—" ? "— None —" : row.deal || "— None —",
+      notes: row.notes || "—",
+    });
+    setEditingEmail(row);
+    setAddModalOpen(true);
   };
 
   const toYyyyMmDd = (ddMmYyyy) => {
@@ -77,8 +93,7 @@ export default function AdminEmailLogPage() {
     const repEntry = REPS.find((r) => r.name === rep) || REPS[0];
     const emailDate = toYyyyMmDd(date) || new Date().toISOString().slice(0, 10);
     const deal = linkedDeal === "— None —" ? "—" : linkedDeal;
-    const newEmail = {
-      id: Math.max(0, ...emails.map((e) => e.id)) + 1,
+    const payload = {
       date: emailDate,
       subject: subject.trim(),
       company: company.trim() || "—",
@@ -87,7 +102,14 @@ export default function AdminEmailLogPage() {
       deal: deal || "—",
       notes: notes.trim() || "—",
     };
-    setEmails((prev) => [newEmail, ...prev]);
+    if (editingEmail) {
+      setEmails((prev) => prev.map((e) => (e.id === editingEmail.id ? { ...payload, id: e.id } : e)));
+      setEditingEmail(null);
+      toast.success("Email log updated successfully");
+    } else {
+      setEmails((prev) => [{ ...payload, id: Math.max(0, ...emails.map((e) => e.id)) + 1 }, ...prev]);
+      toast.success("Email log added successfully");
+    }
     setEmailForm(initialEmailForm);
     setAddModalOpen(false);
   };
@@ -95,6 +117,7 @@ export default function AdminEmailLogPage() {
   const closeAddModal = () => {
     setAddModalOpen(false);
     setEmailForm(initialEmailForm);
+    setEditingEmail(null);
   };
 
   return (
@@ -119,7 +142,7 @@ export default function AdminEmailLogPage() {
           </button>
           <button
             type="button"
-            onClick={() => setAddModalOpen(true)}
+            onClick={() => { setEditingEmail(null); setEmailForm(initialEmailForm); setAddModalOpen(true); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -193,43 +216,44 @@ export default function AdminEmailLogPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px] text-sm">
+            <table className="w-max min-w-[800px] text-sm table-fixed">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">#</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Date</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Subject</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Company</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Rep</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Deal</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Notes</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Actions</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">#</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Date</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Subject</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Rep</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Deal</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Notes</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                    <td className="py-4 px-4 text-body">{idx + 1}</td>
-                    <td className="py-4 px-4 text-body">{row.date}</td>
-                    <td className="py-4 px-4 font-medium text-brand-dark">{row.subject}</td>
-                    <td className="py-4 px-4 text-body">{row.company}</td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
+                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                    <td className="py-3 px-3 text-body tabular-nums">{idx + 1}</td>
+                    <td className="py-3 px-3 text-body tabular-nums whitespace-nowrap">{row.date}</td>
+                    <td className="py-3 px-3 font-medium text-brand-dark truncate" title={row.subject}>{row.subject}</td>
+                    <td className="py-3 px-3 text-body truncate" title={row.company}>{row.company}</td>
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2 min-w-0">
                         <span className="w-8 h-8 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-xs shrink-0">
                           {row.repInitials}
                         </span>
-                        <span className="text-body">{row.rep}</span>
+                        <span className="text-body truncate min-w-0" title={row.rep}>{row.rep}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.deal}</td>
-                    <td className="py-4 px-4 text-body max-w-[200px] truncate" title={row.notes}>
+                    <td className="py-3 px-3 text-body truncate" title={row.deal}>{row.deal}</td>
+                    <td className="py-3 px-3 text-body min-w-0 truncate" title={row.notes}>
                       {row.notes || "—"}
                     </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-1">
+                    <td className="py-3 px-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
-                          className="p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          onClick={() => openEditEmail(row)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="Edit email"
                         >
                           <Pencil className="w-4 h-4" strokeWidth={2} />
@@ -237,7 +261,7 @@ export default function AdminEmailLogPage() {
                         <button
                           type="button"
                           onClick={() => handleDelete(row.id)}
-                          className="p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
                           aria-label="Delete email"
                         >
                           <Trash2 className="w-4 h-4" strokeWidth={2} />
@@ -261,7 +285,7 @@ export default function AdminEmailLogPage() {
           <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
           <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-              <h2 className="text-lg font-bold text-brand-dark">Log Email Activity</h2>
+              <h2 className="text-lg font-bold text-brand-dark">{editingEmail ? "Edit Email Log" : "Log Email Activity"}</h2>
               <button
                 type="button"
                 onClick={closeAddModal}
@@ -357,7 +381,7 @@ export default function AdminEmailLogPage() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
               >
                 <Save className="w-4 h-4" strokeWidth={2} />
-                Save
+                {editingEmail ? "Save changes" : "Save"}
               </button>
             </div>
           </div>

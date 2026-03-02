@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const ROLES = [
   { value: "", label: "Select role" },
@@ -139,13 +139,6 @@ export default function Login() {
             <span aria-hidden>→</span>
           </button>
         </form>
-
-        <p className="mt-4 text-center text-sm text-body">
-          Don&apos;t have an account?{" "}
-          <Link to="/signup" className="text-brand font-semibold hover:text-brand-dark transition">
-            Sign Up
-          </Link>
-        </p>
       </div>
     </div>
   );

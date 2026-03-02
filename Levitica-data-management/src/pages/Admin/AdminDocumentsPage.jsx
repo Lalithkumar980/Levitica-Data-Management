@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { toast } from "react-toastify";
 import {
   Bell,
   Plus,
@@ -61,6 +62,8 @@ export default function AdminDocumentsPage() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
+  const [editingDocument, setEditingDocument] = useState(null);
+  const [viewingDocument, setViewingDocument] = useState(null);
 
   const filtered = documents.filter((row) => {
     const matchSearch =
@@ -79,7 +82,25 @@ export default function AdminDocumentsPage() {
 
   const handleDelete = (id) => {
     setDocuments((prev) => prev.filter((d) => d.id !== id));
+    toast.success("Document deleted");
   };
+
+  const openEditDocument = (row) => {
+    setUploadForm({
+      fileName: row.fileName || "",
+      fileType: row.type || "Document",
+      company: row.company || "",
+      fileSize: row.size || "",
+      linkedDeal: row.linkedDeal === "—" ? "— None —" : row.linkedDeal || "— None —",
+      linkedContact: "— None —",
+      uploadDate: row.date ? row.date.split("-").reverse().join("-") : "",
+      notes: row.notes || "—",
+    });
+    setEditingDocument(row);
+    setUploadModalOpen(true);
+  };
+
+  const openViewDocument = (row) => setViewingDocument(row);
 
   const toYyyyMmDd = (ddMmYyyy) => {
     if (!ddMmYyyy || !/^\d{2}-\d{2}-\d{4}$/.test(ddMmYyyy)) return ddMmYyyy || "";
@@ -116,20 +137,26 @@ export default function AdminDocumentsPage() {
     const deal = linkedDeal === "— None —" ? "—" : linkedDeal;
     const ext = (fileName.split(".").pop() || "").toLowerCase();
     const isPdf = ext === "pdf";
-    const newDoc = {
-      id: Math.max(0, ...documents.map((d) => d.id)) + 1,
+    const payload = {
       fileName: fileName.trim(),
       type: fileType,
       company: company.trim() || "—",
       linkedDeal: deal || "—",
-      uploadedBy: "Priya Nair",
-      uploadedByInitials: "PN",
+      uploadedBy: editingDocument ? editingDocument.uploadedBy : "Priya Nair",
+      uploadedByInitials: editingDocument ? editingDocument.uploadedByInitials : "PN",
       date,
       size: fileSize || "—",
       notes: notes.trim() || "—",
       isPdf,
     };
-    setDocuments((prev) => [newDoc, ...prev]);
+    if (editingDocument) {
+      setDocuments((prev) => prev.map((d) => (d.id === editingDocument.id ? { ...payload, id: d.id } : d)));
+      setEditingDocument(null);
+      toast.success("Document updated successfully");
+    } else {
+      setDocuments((prev) => [{ ...payload, id: Math.max(0, ...documents.map((d) => d.id)) + 1 }, ...prev]);
+      toast.success("Document uploaded successfully");
+    }
     setUploadForm(initialUploadForm);
     setSelectedFile(null);
     setUploadModalOpen(false);
@@ -140,6 +167,7 @@ export default function AdminDocumentsPage() {
     setUploadForm(initialUploadForm);
     setSelectedFile(null);
     setIsDragging(false);
+    setEditingDocument(null);
   };
 
   return (
@@ -164,7 +192,7 @@ export default function AdminDocumentsPage() {
           </button>
           <button
             type="button"
-            onClick={() => setUploadModalOpen(true)}
+            onClick={() => { setEditingDocument(null); setUploadForm(initialUploadForm); setUploadModalOpen(true); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -253,26 +281,26 @@ export default function AdminDocumentsPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] text-sm">
+            <table className="w-max min-w-[1000px] text-sm table-fixed">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">#</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">File Name</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Type</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Company</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Linked Deal</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Uploaded By</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Date</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Size</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Notes</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Actions</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">#</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">File Name</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Type</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Linked Deal</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Uploaded By</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Date</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Size</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Notes</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                    <td className="py-4 px-4 text-body">{idx + 1}</td>
-                    <td className="py-4 px-4">
+                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                    <td className="py-3 px-3 text-body tabular-nums">{idx + 1}</td>
+                    <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
                         <span className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
                           {row.isPdf ? (
@@ -281,45 +309,47 @@ export default function AdminDocumentsPage() {
                             <Mic className="w-4 h-4 text-amber-600" strokeWidth={2} />
                           )}
                         </span>
-                        <span className="font-medium text-brand-dark">{row.fileName}</span>
+                        <span className="font-medium text-brand-dark truncate" title={row.fileName}>{row.fileName}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${TYPE_STYLES[row.type] || "bg-gray-100 text-gray-700"}`}>
                         {row.type}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.company}</td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3 text-body truncate" title={row.company}>{row.company}</td>
+                    <td className="py-3 px-3">
                       <button type="button" className="text-brand hover:underline font-medium text-left">
                         {row.linkedDeal}
                       </button>
                     </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2 min-w-0">
                         <span className="w-8 h-8 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-xs shrink-0">
                           {row.uploadedByInitials}
                         </span>
-                        <span className="text-body">{row.uploadedBy}</span>
+                        <span className="text-body truncate min-w-0" title={row.uploadedBy}>{row.uploadedBy}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.date}</td>
-                    <td className="py-4 px-4 text-body">{row.size}</td>
-                    <td className="py-4 px-4 text-body max-w-[160px] truncate" title={row.notes}>
+                    <td className="py-3 px-3 text-body tabular-nums whitespace-nowrap">{row.date}</td>
+                    <td className="py-3 px-3 text-body tabular-nums">{row.size}</td>
+                    <td className="py-3 px-3 text-body min-w-0 truncate" title={row.notes}>
                       {row.notes || "—"}
                     </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-1">
+                    <td className="py-3 px-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
-                          className="p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          onClick={() => openViewDocument(row)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="View file"
                         >
                           <Eye className="w-4 h-4" strokeWidth={2} />
                         </button>
                         <button
                           type="button"
-                          className="p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          onClick={() => openEditDocument(row)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="Edit file"
                         >
                           <Pencil className="w-4 h-4" strokeWidth={2} />
@@ -327,7 +357,7 @@ export default function AdminDocumentsPage() {
                         <button
                           type="button"
                           onClick={() => handleDelete(row.id)}
-                          className="p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
                           aria-label="Delete file"
                         >
                           <Trash2 className="w-4 h-4" strokeWidth={2} />
@@ -351,7 +381,7 @@ export default function AdminDocumentsPage() {
           <div className="absolute inset-0 bg-black/50" onClick={closeUploadModal} aria-hidden />
           <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-              <h2 className="text-lg font-bold text-brand-dark">Upload Document</h2>
+              <h2 className="text-lg font-bold text-brand-dark">{editingDocument ? "Edit Document" : "Upload Document"}</h2>
               <button
                 type="button"
                 onClick={closeUploadModal}
@@ -493,8 +523,33 @@ export default function AdminDocumentsPage() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
               >
                 <Save className="w-4 h-4" strokeWidth={2} />
-                Save
+                {editingDocument ? "Save changes" : "Save"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Document Modal */}
+      {viewingDocument && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setViewingDocument(null)} aria-hidden />
+          <div className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-brand-dark">View Document</h2>
+              <button type="button" onClick={() => setViewingDocument(null)} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">File Name</span><p className="font-medium text-brand-dark mt-0.5">{viewingDocument.fileName}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Type</span><p className="text-body mt-0.5">{viewingDocument.type}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Company</span><p className="text-body mt-0.5">{viewingDocument.company}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Linked Deal</span><p className="text-body mt-0.5">{viewingDocument.linkedDeal}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Uploaded By</span><p className="text-body mt-0.5">{viewingDocument.uploadedBy}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Date</span><p className="text-body mt-0.5">{viewingDocument.date}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Size</span><p className="text-body mt-0.5">{viewingDocument.size}</p></div>
+              {viewingDocument.notes && viewingDocument.notes !== "—" && <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Notes</span><p className="text-body mt-0.5">{viewingDocument.notes}</p></div>}
             </div>
           </div>
         </div>

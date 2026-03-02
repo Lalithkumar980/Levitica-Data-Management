@@ -80,6 +80,8 @@ export default function AdminLeadsPage() {
   const [sourceFilter, setSourceFilter] = useState("All Sources");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [leadForm, setLeadForm] = useState(initialLeadForm);
+  const [editingLead, setEditingLead] = useState(null);
+  const [viewingLead, setViewingLead] = useState(null);
 
   const filtered = leads.filter((row) => {
     const matchSearch =
@@ -103,7 +105,32 @@ export default function AdminLeadsPage() {
 
   const handleDelete = (id) => {
     setLeads((prev) => prev.filter((l) => l.id !== id));
+    toast.success("Lead deleted");
   };
+
+  const openEditLead = (row) => {
+    const parts = (row.name || "").trim().split(/\s+/);
+    const firstName = parts[0] || "";
+    const lastName = parts.slice(1).join(" ") || "";
+    setLeadForm({
+      firstName,
+      lastName,
+      company: row.company || "",
+      phone: row.phone || "",
+      email: row.email || "",
+      industry: row.industry || "Technology",
+      city: (row.city || "").split(",")[0]?.trim() || "",
+      country: "India",
+      leadSource: row.source || "Website",
+      status: row.status || "New",
+      assignedTo: row.owner || ASSIGNED_USERS[0]?.name || "",
+      notes: row.subtext || "",
+    });
+    setEditingLead(row);
+    setAddModalOpen(true);
+  };
+
+  const openViewLead = (row) => setViewingLead(row);
 
   const handleLeadFormChange = (field, value) => {
     setLeadForm((prev) => ({ ...prev, [field]: value }));
@@ -113,8 +140,7 @@ export default function AdminLeadsPage() {
     const { firstName, lastName, company, phone, email, industry, city, country, leadSource, status, assignedTo, notes } = leadForm;
     if (!firstName.trim() || !lastName.trim() || !phone.trim() || !leadSource) return;
     const ownerEntry = ASSIGNED_USERS.find((u) => u.name === assignedTo) || ASSIGNED_USERS[0];
-    const newLead = {
-      id: Math.max(0, ...leads.map((l) => l.id)) + 1,
+    const payload = {
       name: `${firstName.trim()} ${lastName.trim()}`,
       subtext: notes.trim().slice(0, 50) || "—",
       company: company.trim() || "—",
@@ -126,17 +152,24 @@ export default function AdminLeadsPage() {
       status,
       owner: ownerEntry.name,
       ownerInitials: ownerEntry.initials,
-      created: new Date().toISOString().slice(0, 10),
+      created: editingLead ? editingLead.created : new Date().toISOString().slice(0, 10),
     };
-    setLeads((prev) => [newLead, ...prev]);
+    if (editingLead) {
+      setLeads((prev) => prev.map((l) => (l.id === editingLead.id ? { ...l, ...payload, id: l.id } : l)));
+      setEditingLead(null);
+      toast.success("Lead updated successfully");
+    } else {
+      setLeads((prev) => [{ ...payload, id: Math.max(0, ...leads.map((l) => l.id)) + 1 }, ...prev]);
+      toast.success("Lead added successfully");
+    }
     setLeadForm(initialLeadForm);
     setAddModalOpen(false);
-    toast.success("Lead added successfully");
   };
 
   const closeAddModal = () => {
     setAddModalOpen(false);
     setLeadForm(initialLeadForm);
+    setEditingLead(null);
   };
 
   return (
@@ -161,7 +194,7 @@ export default function AdminLeadsPage() {
           </button>
           <button
             type="button"
-            onClick={() => setAddModalOpen(true)}
+            onClick={() => { setEditingLead(null); setLeadForm(initialLeadForm); setAddModalOpen(true); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -296,66 +329,67 @@ export default function AdminLeadsPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-sm">
+            <table className="w-max min-w-[1100px] text-sm table-fixed">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">#</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Name</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Company</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Phone</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Email</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Industry</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">City</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Source</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Owner</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Created</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Actions</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">#</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Name</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Phone</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Email</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Industry</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">City</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Source</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Status</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Owner</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Created</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                    <td className="py-4 px-4 text-body">{idx + 1}</td>
-                    <td className="py-4 px-4">
+                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                    <td className="py-3 px-3 text-body tabular-nums">{idx + 1}</td>
+                    <td className="py-3 px-3">
                       <div>
                         <p className="font-medium text-brand-dark">{row.name}</p>
                         <p className="text-xs text-body">{row.subtext}</p>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.company}</td>
-                    <td className="py-4 px-4 text-body">{row.phone}</td>
-                    <td className="py-4 px-4 text-body">{row.email}</td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3 text-body truncate" title={row.company}>{row.company}</td>
+                    <td className="py-3 px-3 text-body truncate" title={row.phone}>{row.phone}</td>
+                    <td className="py-3 px-3 text-body truncate" title={row.email}>{row.email}</td>
+                    <td className="py-3 px-3">
                       <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                         {row.industry}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.city}</td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3 text-body truncate" title={row.city}>{row.city}</td>
+                    <td className="py-3 px-3">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${SOURCE_STYLES[row.source] || "bg-gray-100 text-gray-700"}`}>
                         {row.source}
                       </span>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[row.status] || "bg-gray-100 text-gray-700"}`}>
                         {row.status}
                       </span>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
                         <span className="w-8 h-8 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-xs shrink-0">
                           {row.ownerInitials}
                         </span>
-                        <span className="text-body">{row.owner}</span>
+                        <span className="text-body truncate" title={row.owner}>{row.owner}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.created}</td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-1">
+                    <td className="py-3 px-3 text-body tabular-nums whitespace-nowrap">{row.created}</td>
+                    <td className="py-3 px-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
-                          className="p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          onClick={() => openEditLead(row)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="Edit lead"
                         >
                           <Pencil className="w-4 h-4" strokeWidth={2} />
@@ -363,14 +397,15 @@ export default function AdminLeadsPage() {
                         <button
                           type="button"
                           onClick={() => handleDelete(row.id)}
-                          className="p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
                           aria-label="Delete lead"
                         >
                           <Trash2 className="w-4 h-4" strokeWidth={2} />
                         </button>
                         <button
                           type="button"
-                          className="p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          onClick={() => openViewLead(row)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="View lead"
                         >
                           <Eye className="w-4 h-4" strokeWidth={2} />
@@ -394,7 +429,7 @@ export default function AdminLeadsPage() {
           <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
           <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-              <h2 className="text-lg font-bold text-brand-dark">Add Lead</h2>
+              <h2 className="text-lg font-bold text-brand-dark">{editingLead ? "Edit Lead" : "Add Lead"}</h2>
               <button
                 type="button"
                 onClick={closeAddModal}
@@ -551,8 +586,36 @@ export default function AdminLeadsPage() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
               >
                 <Save className="w-4 h-4" strokeWidth={2} />
-                Save Lead
+                {editingLead ? "Save changes" : "Save Lead"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Lead Modal */}
+      {viewingLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setViewingLead(null)} aria-hidden />
+          <div className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-brand-dark">View Lead</h2>
+              <button type="button" onClick={() => setViewingLead(null)} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Name</span><p className="font-medium text-brand-dark mt-0.5">{viewingLead.name}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Company</span><p className="text-body mt-0.5">{viewingLead.company}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Phone</span><p className="text-body mt-0.5">{viewingLead.phone}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Email</span><p className="text-body mt-0.5">{viewingLead.email}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Industry</span><p className="text-body mt-0.5">{viewingLead.industry}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">City</span><p className="text-body mt-0.5">{viewingLead.city}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Source</span><p className="text-body mt-0.5">{viewingLead.source}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Status</span><p className="text-body mt-0.5">{viewingLead.status}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Owner</span><p className="text-body mt-0.5">{viewingLead.owner}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Created</span><p className="text-body mt-0.5">{viewingLead.created}</p></div>
+              {viewingLead.subtext && viewingLead.subtext !== "—" && <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Notes</span><p className="text-body mt-0.5">{viewingLead.subtext}</p></div>}
             </div>
           </div>
         </div>

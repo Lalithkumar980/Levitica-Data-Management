@@ -119,26 +119,26 @@ export default function AdminBulkUploadPage() {
             <h2 className="text-base font-semibold text-brand-dark">Required CSV Column Format</h2>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px] text-sm">
+            <table className="w-full min-w-[600px] text-sm table-fixed">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Column Header</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Field Mapped To</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Required</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Example</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Column Header</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Field Mapped To</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Required</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Example</th>
                 </tr>
               </thead>
               <tbody>
                 {CSV_COLUMNS.map((row, idx) => (
-                  <tr key={idx} className="border-b border-gray-50">
-                    <td className="py-3 px-4 font-medium text-brand-dark">{row.header}</td>
-                    <td className="py-3 px-4 text-body">{row.field}</td>
-                    <td className="py-3 px-4">
+                  <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                    <td className="py-3 px-3 font-medium text-brand-dark">{row.header}</td>
+                    <td className="py-3 px-3 text-body">{row.field}</td>
+                    <td className="py-3 px-3">
                       <span className={row.required === "Required" ? "text-danger font-medium" : "text-body"}>
                         {row.required}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-body">{row.example}</td>
+                    <td className="py-3 px-3 text-body">{row.example}</td>
                   </tr>
                 ))}
               </tbody>

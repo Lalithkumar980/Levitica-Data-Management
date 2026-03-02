@@ -240,16 +240,16 @@ export default function AdminUsersRolesPage() {
             <h2 className="font-semibold text-brand-dark">Users & Access Control</h2>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm">
+            <table className="w-max min-w-[900px] text-sm table-fixed">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600 w-10">#</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">User</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Email</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Role</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Dept</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Modules</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Permissions</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600 w-10">#</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">User</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Email</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Role</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Dept</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Modules</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Permissions</th>
                 </tr>
               </thead>
               <tbody>
@@ -257,10 +257,10 @@ export default function AdminUsersRolesPage() {
                   <tr
                     key={row.id ?? idx}
                     onClick={() => { setSelectedUser(row); setShowPassword(false); setDetailsEditMode(false); }}
-                    className="border-b border-gray-50 hover:bg-gray-50/50 transition cursor-pointer"
+                    className="border-b border-gray-100 hover:bg-gray-50/50 transition cursor-pointer"
                   >
-                    <td className="py-3 px-4 text-body">{idx + 1}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-3 text-body tabular-nums">{idx + 1}</td>
+                    <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
                         <span className="w-8 h-8 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-xs shrink-0">
                           {row.initials}
@@ -268,14 +268,14 @@ export default function AdminUsersRolesPage() {
                         <span className="font-medium text-brand-dark">{row.name}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-body">{row.email}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-3 text-body truncate" title={row.email}>{row.email}</td>
+                    <td className="py-3 px-3">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${row.roleClass}`}>
                         {row.role}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-body">{row.dept}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-3 text-body truncate" title={row.dept}>{row.dept}</td>
+                    <td className="py-3 px-3">
                       <div className="flex flex-wrap gap-1">
                         {row.modules.map((m, i) => (
                           <span key={i} className="text-body text-xs flex items-center gap-0.5">
@@ -285,7 +285,7 @@ export default function AdminUsersRolesPage() {
                         ))}
                       </div>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-3">
                       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
                         <span className={row.viewAll ? "text-success flex items-center gap-1" : "text-danger flex items-center gap-1"}>
                           {row.viewAll ? <Check className="w-3.5 h-3.5" strokeWidth={2.5} /> : <X className="w-3.5 h-3.5" strokeWidth={2.5} />}
@@ -331,17 +331,17 @@ export default function AdminUsersRolesPage() {
                 {ROLE_MATRIX.map((row, idx) => (
                   <tr key={idx} className="border-b border-gray-50">
                     <td className="py-3 px-4 font-medium text-brand-dark">{row.permission}</td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-3 px-3 text-center">
                       <span className={row.admin ? "text-success inline-flex items-center gap-1" : "text-danger inline-flex items-center gap-1"}>
                         {row.admin ? <><Check className="w-4 h-4" strokeWidth={2.5} /> Yes</> : <><X className="w-4 h-4" strokeWidth={2.5} /> No</>}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-3 px-3 text-center">
                       <span className={row.salesManager ? "text-success inline-flex items-center gap-1" : "text-danger inline-flex items-center gap-1"}>
                         {row.salesManager ? <><Check className="w-4 h-4" strokeWidth={2.5} /> Yes</> : <><X className="w-4 h-4" strokeWidth={2.5} /> No</>}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-3 px-3 text-center">
                       <span className={row.salesRep ? "text-success inline-flex items-center gap-1" : "text-danger inline-flex items-center gap-1"}>
                         {row.salesRep ? <><Check className="w-4 h-4" strokeWidth={2.5} /> Yes</> : <><X className="w-4 h-4" strokeWidth={2.5} /> No</>}
                       </span>

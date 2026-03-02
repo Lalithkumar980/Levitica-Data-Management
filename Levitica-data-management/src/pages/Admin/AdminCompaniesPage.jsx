@@ -1,9 +1,11 @@
 import React, { useState } from "react";
+import { toast } from "react-toastify";
 import {
   Bell,
   Plus,
   Pencil,
   Trash2,
+  Eye,
   X,
   Save,
 } from "lucide-react";
@@ -51,6 +53,8 @@ export default function AdminCompaniesPage() {
   const [search, setSearch] = useState("");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [companyForm, setCompanyForm] = useState(initialCompanyForm);
+  const [editingCompany, setEditingCompany] = useState(null);
+  const [viewingCompany, setViewingCompany] = useState(null);
 
   const filtered = companies.filter(
     (row) =>
@@ -62,7 +66,28 @@ export default function AdminCompaniesPage() {
 
   const handleDelete = (id) => {
     setCompanies((prev) => prev.filter((c) => c.id !== id));
+    toast.success("Company deleted");
   };
+
+  const openEditCompany = (row) => {
+    setCompanyForm({
+      companyName: row.name || "",
+      industry: row.industry || "Technology",
+      website: row.website || "",
+      phone: "",
+      city: (row.city || "").split(",")[0]?.trim() || row.city || "",
+      country: "India",
+      employees: row.employees || "0",
+      annualRevenue: (row.annualRevenue || "0").replace(/[₹,]/g, "").trim() || "0",
+      status: row.status || "Lead",
+      owner: row.owner || OWNERS[0]?.name || "",
+      notes: row.description || "",
+    });
+    setEditingCompany(row);
+    setAddModalOpen(true);
+  };
+
+  const openViewCompany = (row) => setViewingCompany(row);
 
   const handleCompanyFormChange = (field, value) => {
     setCompanyForm((prev) => ({ ...prev, [field]: value }));
@@ -74,8 +99,7 @@ export default function AdminCompaniesPage() {
     const ownerEntry = OWNERS.find((o) => o.name === owner) || OWNERS[0];
     const revenueVal = annualRevenue.trim() || "0";
     const revenueDisplay = revenueVal === "0" ? "₹0" : `₹${Number(revenueVal).toLocaleString("en-IN")}`;
-    const newCompany = {
-      id: Math.max(0, ...companies.map((c) => c.id)) + 1,
+    const payload = {
       name: companyName.trim(),
       description: notes.trim().slice(0, 50) || "—",
       industry,
@@ -86,10 +110,17 @@ export default function AdminCompaniesPage() {
       status,
       owner: ownerEntry.name,
       ownerInitials: ownerEntry.initials,
-      contacts: 0,
-      deals: 0,
+      contacts: editingCompany ? editingCompany.contacts : 0,
+      deals: editingCompany ? editingCompany.deals : 0,
     };
-    setCompanies((prev) => [newCompany, ...prev]);
+    if (editingCompany) {
+      setCompanies((prev) => prev.map((c) => (c.id === editingCompany.id ? { ...c, ...payload, id: c.id } : c)));
+      setEditingCompany(null);
+      toast.success("Company updated successfully");
+    } else {
+      setCompanies((prev) => [{ ...payload, id: Math.max(0, ...companies.map((c) => c.id)) + 1 }, ...prev]);
+      toast.success("Company added successfully");
+    }
     setCompanyForm(initialCompanyForm);
     setAddModalOpen(false);
   };
@@ -97,6 +128,7 @@ export default function AdminCompaniesPage() {
   const closeAddModal = () => {
     setAddModalOpen(false);
     setCompanyForm(initialCompanyForm);
+    setEditingCompany(null);
   };
 
   return (
@@ -146,66 +178,81 @@ export default function AdminCompaniesPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-sm">
+            <table className="w-full min-w-[1100px] text-sm table-fixed">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">#</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Company</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Industry</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">City</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Website</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Employees</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Annual Revenue</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Owner</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Contacts</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Deals</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Actions</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">#</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Industry</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">City</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Website</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Employees</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Annual Revenue</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Status</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Owner</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Contacts</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Deals</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                    <td className="py-4 px-4 text-body">{idx + 1}</td>
-                    <td className="py-4 px-4">
-                      <div>
-                        <p className="font-medium text-brand-dark">{row.name}</p>
-                        <p className="text-xs text-body">{row.description}</p>
+                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                    <td className="py-3 px-3 text-body tabular-nums">{idx + 1}</td>
+                    <td className="py-3 px-3 min-w-0">
+                      <div className="min-w-0">
+                        <p className="font-medium text-brand-dark truncate" title={row.name}>{row.name}</p>
+                        {row.description && (
+                          <p className="text-xs text-body truncate" title={row.description}>{row.description}</p>
+                        )}
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.industry}</td>
-                    <td className="py-4 px-4 text-body">{row.city}</td>
-                    <td className="py-4 px-4 text-body">{row.website}</td>
-                    <td className="py-4 px-4 text-body">{row.employees}</td>
-                    <td className="py-4 px-4 text-body">{row.annualRevenue}</td>
-                    <td className="py-4 px-4">
+                    <td className="py-3 px-3">
+                      <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                        {row.industry}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-body truncate" title={row.city}>{row.city}</td>
+                    <td className="py-3 px-3 text-body truncate" title={row.website}>{row.website}</td>
+                    <td className="py-3 px-3 text-body tabular-nums">{row.employees}</td>
+                    <td className="py-3 px-3 text-body tabular-nums whitespace-nowrap">{row.annualRevenue}</td>
+                    <td className="py-3 px-3">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[row.status] || "bg-gray-100 text-gray-700"}`}>
                         {row.status}
                       </span>
                     </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-xs shrink-0">
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold text-xs shrink-0">
                           {row.ownerInitials}
                         </span>
-                        <span className="text-body">{row.owner}</span>
+                        <span className="text-body truncate min-w-0" title={row.owner}>{row.owner}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.contacts}</td>
-                    <td className="py-4 px-4 text-body">{row.deals}</td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-1">
+                    <td className="py-3 px-3 text-body tabular-nums">{row.contacts}</td>
+                    <td className="py-3 px-3 text-body tabular-nums">{row.deals}</td>
+                    <td className="py-3 px-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
-                          className="p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          onClick={() => openEditCompany(row)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="Edit company"
                         >
                           <Pencil className="w-4 h-4" strokeWidth={2} />
                         </button>
                         <button
                           type="button"
+                          onClick={() => openViewCompany(row)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          aria-label="View company"
+                        >
+                          <Eye className="w-4 h-4" strokeWidth={2} />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleDelete(row.id)}
-                          className="p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
                           aria-label="Delete company"
                         >
                           <Trash2 className="w-4 h-4" strokeWidth={2} />
@@ -229,7 +276,7 @@ export default function AdminCompaniesPage() {
           <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
           <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-              <h2 className="text-lg font-bold text-brand-dark">New Company</h2>
+              <h2 className="text-lg font-bold text-brand-dark">{editingCompany ? "Edit Company" : "New Company"}</h2>
               <button
                 type="button"
                 onClick={closeAddModal}
@@ -376,8 +423,35 @@ export default function AdminCompaniesPage() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
               >
                 <Save className="w-4 h-4" strokeWidth={2} />
-                Save
+                {editingCompany ? "Save changes" : "Save"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Company Modal */}
+      {viewingCompany && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setViewingCompany(null)} aria-hidden />
+          <div className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-brand-dark">View Company</h2>
+              <button type="button" onClick={() => setViewingCompany(null)} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Company</span><p className="font-medium text-brand-dark mt-0.5">{viewingCompany.name}</p></div>
+              {viewingCompany.description && <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Description</span><p className="text-body mt-0.5">{viewingCompany.description}</p></div>}
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Industry</span><p className="text-body mt-0.5">{viewingCompany.industry}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">City</span><p className="text-body mt-0.5">{viewingCompany.city}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Website</span><p className="text-body mt-0.5">{viewingCompany.website}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Employees</span><p className="text-body mt-0.5">{viewingCompany.employees}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Annual Revenue</span><p className="text-body mt-0.5">{viewingCompany.annualRevenue}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Status</span><p className="text-body mt-0.5">{viewingCompany.status}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Owner</span><p className="text-body mt-0.5">{viewingCompany.owner}</p></div>
+              <div><span className="text-xs font-semibold text-body uppercase tracking-wider">Contacts / Deals</span><p className="text-body mt-0.5">{viewingCompany.contacts} / {viewingCompany.deals}</p></div>
             </div>
           </div>
         </div>

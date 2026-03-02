@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "react-toastify";
 import {
   Bell,
   Plus,
@@ -82,6 +83,8 @@ const initialActivityForm = {
   followUpType: "Call",
 };
 
+const initialTaskForm = { type: "Call", subject: "", company: "", dueDate: "", priority: "Medium", status: "Pending", rep: "Priya Nair", deal: "" };
+
 export default function AdminActivityLogPage() {
   const [activities, setActivities] = useState(INITIAL_ACTIVITIES);
   const [followUpTasks, setFollowUpTasks] = useState(INITIAL_FOLLOWUP_TASKS);
@@ -91,6 +94,9 @@ export default function AdminActivityLogPage() {
   const [activeTab, setActiveTab] = useState("log"); // "log" | "followups"
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [activityForm, setActivityForm] = useState(initialActivityForm);
+  const [editingActivity, setEditingActivity] = useState(null);
+  const [editingTask, setEditingTask] = useState(null);
+  const [taskForm, setTaskForm] = useState(initialTaskForm);
 
   const filtered = activities.filter((row) => {
     const matchSearch =
@@ -121,10 +127,65 @@ export default function AdminActivityLogPage() {
 
   const handleDelete = (id) => {
     setActivities((prev) => prev.filter((a) => a.id !== id));
+    toast.success("Activity deleted");
   };
 
   const handleDeleteTask = (id) => {
     setFollowUpTasks((prev) => prev.filter((t) => t.id !== id));
+    toast.success("Task deleted");
+  };
+
+  const openEditActivity = (row) => {
+    setActivityForm({
+      activityType: row.type || "Call",
+      date: row.date ? row.date.split("-").reverse().join("-") : "",
+      subject: row.subject || "",
+      company: row.company || "",
+      duration: row.duration || "0",
+      callOutcome: row.outcome || "—",
+      rep: row.rep || "Priya Nair",
+      linkedDeal: row.dealLinked === "—" ? "— None —" : row.dealLinked || "— None —",
+      linkedContact: "— None —",
+      callRecording: row.recording || "",
+      notes: row.subject || "",
+      scheduleFollowUp: "",
+      followUpType: "Call",
+    });
+    setEditingActivity(row);
+    setAddModalOpen(true);
+  };
+
+  const openEditTask = (row) => {
+    setEditingTask(row);
+    setTaskForm({
+      type: row.type || "Call",
+      subject: row.subject || "",
+      company: row.company || "",
+      dueDate: row.dueDate || "",
+      priority: row.priority || "Medium",
+      status: row.status || "Pending",
+      rep: row.rep || "Priya Nair",
+      deal: row.deal || "",
+    });
+  };
+
+  const handleTaskFormChange = (field, value) => {
+    setTaskForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveTaskEdit = () => {
+    if (!editingTask) return;
+    const repEntry = REPS.find((r) => r.name === taskForm.rep) || REPS[0];
+    setFollowUpTasks((prev) =>
+      prev.map((t) =>
+        t.id === editingTask.id
+          ? { ...t, ...taskForm, repInitials: repEntry.initials }
+          : t
+      )
+    );
+    setEditingTask(null);
+    setTaskForm(initialTaskForm);
+    toast.success("Task updated successfully");
   };
 
   const handleCompleteTask = (id) => {
@@ -150,8 +211,7 @@ export default function AdminActivityLogPage() {
     const activityDate = toYyyyMmDd(date) || new Date().toISOString().slice(0, 10);
     const dealLinked = linkedDeal === "— None —" ? "" : linkedDeal;
     const durationDisplay = duration && duration !== "0" ? `${duration}min` : "";
-    const newActivity = {
-      id: Math.max(0, ...activities.map((a) => a.id)) + 1,
+    const payload = {
       type: activityType,
       subject: subject.trim(),
       company: company.trim() || "—",
@@ -163,8 +223,15 @@ export default function AdminActivityLogPage() {
       date: activityDate,
       recording: callRecording.trim() || "",
     };
-    setActivities((prev) => [newActivity, ...prev]);
-    if (scheduleFollowUp && toYyyyMmDd(scheduleFollowUp)) {
+    if (editingActivity) {
+      setActivities((prev) => prev.map((a) => (a.id === editingActivity.id ? { ...payload, id: a.id } : a)));
+      setEditingActivity(null);
+      toast.success("Activity updated successfully");
+    } else {
+      setActivities((prev) => [{ ...payload, id: Math.max(0, ...activities.map((a) => a.id)) + 1 }, ...prev]);
+      toast.success("Activity logged successfully");
+    }
+    if (!editingActivity && scheduleFollowUp && toYyyyMmDd(scheduleFollowUp)) {
       const followUpDate = toYyyyMmDd(scheduleFollowUp);
       const newTask = {
         id: Math.max(0, ...followUpTasks.map((t) => t.id)) + 1,
@@ -187,6 +254,7 @@ export default function AdminActivityLogPage() {
   const closeAddModal = () => {
     setAddModalOpen(false);
     setActivityForm(initialActivityForm);
+    setEditingActivity(null);
   };
 
   return (
@@ -211,7 +279,7 @@ export default function AdminActivityLogPage() {
           </button>
           <button
             type="button"
-            onClick={() => setAddModalOpen(true)}
+            onClick={() => { setEditingActivity(null); setActivityForm(initialActivityForm); setAddModalOpen(true); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -352,51 +420,52 @@ export default function AdminActivityLogPage() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1000px] text-sm">
+              <table className="w-max min-w-[1000px] text-sm table-fixed">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">#</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Type</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Subject</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Company</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Outcome</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Duration</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Rep</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Deal Linked</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Date</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Recording</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Actions</th>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">#</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Type</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Subject</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Outcome</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Duration</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Rep</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Deal Linked</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Date</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Recording</th>
+                    <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((row, idx) => (
-                    <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                      <td className="py-4 px-4 text-body">{idx + 1}</td>
-                      <td className="py-4 px-4">
+                    <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                      <td className="py-3 px-3 text-body tabular-nums">{idx + 1}</td>
+                      <td className="py-3 px-3">
                         <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${TYPE_STYLES[row.type] || "bg-gray-100 text-gray-700"}`}>
                           {row.type}
                         </span>
                       </td>
-                      <td className="py-4 px-4 font-medium text-brand-dark">{row.subject}</td>
-                      <td className="py-4 px-4 text-body">{row.company}</td>
-                      <td className="py-4 px-4 text-body">{row.outcome || "—"}</td>
-                      <td className="py-4 px-4 text-body">{row.duration || "—"}</td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
+                      <td className="py-3 px-3 font-medium text-brand-dark truncate" title={row.subject}>{row.subject}</td>
+                      <td className="py-3 px-3 text-body truncate" title={row.company}>{row.company}</td>
+                      <td className="py-3 px-3 text-body">{row.outcome || "—"}</td>
+                      <td className="py-3 px-3 text-body tabular-nums">{row.duration || "—"}</td>
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2 min-w-0">
                           <span className="w-8 h-8 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-xs shrink-0">
                             {row.repInitials}
                           </span>
-                          <span className="text-body">{row.rep}</span>
+                          <span className="text-body truncate min-w-0" title={row.rep}>{row.rep}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-body">{row.dealLinked}</td>
-                      <td className="py-4 px-4 text-body">{row.date}</td>
-                      <td className="py-4 px-4 text-body">{row.recording || "—"}</td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-1">
+                      <td className="py-3 px-3 text-body truncate" title={row.dealLinked}>{row.dealLinked}</td>
+                      <td className="py-3 px-3 text-body tabular-nums whitespace-nowrap">{row.date}</td>
+                      <td className="py-3 px-3 text-body truncate" title={row.recording}>{row.recording || "—"}</td>
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             type="button"
-                            className="p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                            onClick={() => openEditActivity(row)}
+                            className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                             aria-label="Edit activity"
                           >
                             <Pencil className="w-4 h-4" strokeWidth={2} />
@@ -404,7 +473,7 @@ export default function AdminActivityLogPage() {
                           <button
                             type="button"
                             onClick={() => handleDelete(row.id)}
-                            className="p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                            className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
                             aria-label="Delete activity"
                           >
                             <Trash2 className="w-4 h-4" strokeWidth={2} />
@@ -445,58 +514,58 @@ export default function AdminActivityLogPage() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-sm">
+              <table className="w-max min-w-[900px] text-sm table-fixed">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">#</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Type</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Subject</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Company</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Due Date</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Priority</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Status</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Rep</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Deal</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Actions</th>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">#</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Type</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Subject</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Due Date</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Priority</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Status</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Rep</th>
+                    <th className="text-left py-3 px-3 font-semibold text-gray-600">Deal</th>
+                    <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredTasks.map((row, idx) => (
-                    <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                      <td className="py-4 px-4 text-body">{idx + 1}</td>
-                      <td className="py-4 px-4">
+                    <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                      <td className="py-3 px-3 text-body tabular-nums">{idx + 1}</td>
+                      <td className="py-3 px-3">
                         <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${TYPE_STYLES[row.type] || "bg-gray-100 text-gray-700"}`}>
                           {row.type}
                         </span>
                       </td>
-                      <td className="py-4 px-4 font-medium text-brand-dark">{row.subject}</td>
-                      <td className="py-4 px-4 text-body">{row.company}</td>
-                      <td className="py-4 px-4 font-medium text-danger">{row.dueDate}</td>
-                      <td className="py-4 px-4">
+                      <td className="py-3 px-3 font-medium text-brand-dark truncate" title={row.subject}>{row.subject}</td>
+                      <td className="py-3 px-3 text-body truncate" title={row.company}>{row.company}</td>
+                      <td className="py-3 px-3 font-medium text-danger tabular-nums whitespace-nowrap">{row.dueDate}</td>
+                      <td className="py-3 px-3">
                         <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${PRIORITY_STYLES[row.priority] || "bg-gray-100 text-gray-700"}`}>
                           {row.priority}
                         </span>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-3 px-3">
                         <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${TASK_STATUS_STYLES[row.status] || "bg-gray-100 text-gray-700"}`}>
                           {row.status}
                         </span>
                       </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2 min-w-0">
                           <span className="w-8 h-8 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-xs shrink-0">
                             {row.repInitials}
                           </span>
-                          <span className="text-body">{row.rep}</span>
+                          <span className="text-body truncate min-w-0" title={row.rep}>{row.rep}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-body">{row.deal}</td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-1">
+                      <td className="py-3 px-3 text-body truncate" title={row.deal}>{row.deal}</td>
+                      <td className="py-3 px-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             type="button"
                             onClick={() => handleCompleteTask(row.id)}
-                            className="p-2 rounded-lg text-body hover:bg-emerald-50 hover:text-success transition"
+                            className="inline-flex p-2 rounded-lg text-body hover:bg-emerald-50 hover:text-success transition"
                             aria-label="Mark complete"
                             title="Mark complete"
                           >
@@ -504,7 +573,8 @@ export default function AdminActivityLogPage() {
                           </button>
                           <button
                             type="button"
-                            className="p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                            onClick={() => openEditTask(row)}
+                            className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                             aria-label="Edit task"
                           >
                             <Pencil className="w-4 h-4" strokeWidth={2} />
@@ -512,7 +582,7 @@ export default function AdminActivityLogPage() {
                           <button
                             type="button"
                             onClick={() => handleDeleteTask(row.id)}
-                            className="p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                            className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
                             aria-label="Delete task"
                           >
                             <Trash2 className="w-4 h-4" strokeWidth={2} />
@@ -537,7 +607,7 @@ export default function AdminActivityLogPage() {
           <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
           <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-              <h2 className="text-lg font-bold text-brand-dark">Log Activity</h2>
+              <h2 className="text-lg font-bold text-brand-dark">{editingActivity ? "Edit Activity" : "Log Activity"}</h2>
               <button
                 type="button"
                 onClick={closeAddModal}
@@ -723,7 +793,74 @@ export default function AdminActivityLogPage() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
               >
                 <Save className="w-4 h-4" strokeWidth={2} />
-                Save Activity
+                {editingActivity ? "Save changes" : "Save Activity"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Task Modal */}
+      {editingTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => { setEditingTask(null); setTaskForm(initialTaskForm); }} aria-hidden />
+          <div className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-brand-dark">Edit Task</h2>
+              <button type="button" onClick={() => { setEditingTask(null); setTaskForm(initialTaskForm); }} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
+                <X className="w-5 h-5" strokeWidth={2} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Type</label>
+                <select value={taskForm.type} onChange={(e) => handleTaskFormChange("type", e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand text-sm appearance-none cursor-pointer pr-10">
+                  {FOLLOW_UP_TYPES.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Subject</label>
+                <input type="text" value={taskForm.subject} onChange={(e) => handleTaskFormChange("subject", e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Company</label>
+                <input type="text" value={taskForm.company} onChange={(e) => handleTaskFormChange("company", e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Due Date</label>
+                <input type="text" value={taskForm.dueDate} onChange={(e) => handleTaskFormChange("dueDate", e.target.value)} placeholder="yyyy-mm-dd" className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand text-sm" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Priority</label>
+                  <select value={taskForm.priority} onChange={(e) => handleTaskFormChange("priority", e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand text-sm appearance-none cursor-pointer pr-10">
+                    {["High", "Medium", "Low"].map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Status</label>
+                  <select value={taskForm.status} onChange={(e) => handleTaskFormChange("status", e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand text-sm appearance-none cursor-pointer pr-10">
+                    <option value="Pending">Pending</option>
+                    <option value="Done">Done</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Rep</label>
+                <select value={taskForm.rep} onChange={(e) => handleTaskFormChange("rep", e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand text-sm appearance-none cursor-pointer pr-10">
+                  {REPS.map((r) => <option key={r.initials} value={r.name}>{r.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Deal</label>
+                <input type="text" value={taskForm.deal} onChange={(e) => handleTaskFormChange("deal", e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand text-sm" />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3">
+              <button type="button" onClick={() => { setEditingTask(null); setTaskForm(initialTaskForm); }} className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition">Cancel</button>
+              <button type="button" onClick={handleSaveTaskEdit} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition">
+                <Save className="w-4 h-4" strokeWidth={2} />
+                Save changes
               </button>
             </div>
           </div>

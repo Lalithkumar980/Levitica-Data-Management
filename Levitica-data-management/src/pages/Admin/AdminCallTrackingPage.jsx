@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "react-toastify";
 import {
   Bell,
   Plus,
@@ -63,6 +64,7 @@ export default function AdminCallTrackingPage() {
   const [outcomeFilter, setOutcomeFilter] = useState("All Outcomes");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [logForm, setLogForm] = useState(initialLogForm);
+  const [editingCall, setEditingCall] = useState(null);
 
   const filtered = calls.filter((row) => {
     const matchSearch =
@@ -82,6 +84,27 @@ export default function AdminCallTrackingPage() {
 
   const handleDelete = (id) => {
     setCalls((prev) => prev.filter((c) => c.id !== id));
+    toast.success("Call log deleted");
+  };
+
+  const openEditCall = (row) => {
+    setLogForm({
+      activityType: "Call",
+      date: row.date ? row.date.split("-").reverse().join("-") : "",
+      subject: row.subject || "",
+      company: row.company || "",
+      duration: row.duration || "0",
+      callOutcome: row.outcome || "—",
+      rep: row.rep || "Priya Nair",
+      linkedDeal: row.deal === "—" ? "— None —" : row.deal || "— None —",
+      linkedContact: "— None —",
+      callRecording: row.recording || "",
+      notes: row.notes || "",
+      scheduleFollowUp: "",
+      followUpType: "Call",
+    });
+    setEditingCall(row);
+    setAddModalOpen(true);
   };
 
   const toYyyyMmDd = (ddMmYyyy) => {
@@ -102,8 +125,7 @@ export default function AdminCallTrackingPage() {
     const deal = linkedDeal === "— None —" ? "—" : linkedDeal;
     const outcome = callOutcome === "—" ? "" : callOutcome;
     const durationDisplay = duration && duration !== "0" ? `${duration}min` : "";
-    const newCall = {
-      id: Math.max(0, ...calls.map((c) => c.id)) + 1,
+    const payload = {
       date: callDate,
       subject: subject.trim(),
       company: company.trim() || "—",
@@ -115,7 +137,14 @@ export default function AdminCallTrackingPage() {
       notes: notes.trim(),
       recording: callRecording.trim() || "None",
     };
-    setCalls((prev) => [newCall, ...prev]);
+    if (editingCall) {
+      setCalls((prev) => prev.map((c) => (c.id === editingCall.id ? { ...payload, id: c.id } : c)));
+      setEditingCall(null);
+      toast.success("Call log updated successfully");
+    } else {
+      setCalls((prev) => [{ ...payload, id: Math.max(0, ...calls.map((c) => c.id)) + 1 }, ...prev]);
+      toast.success("Call log added successfully");
+    }
     setLogForm(initialLogForm);
     setAddModalOpen(false);
   };
@@ -123,6 +152,7 @@ export default function AdminCallTrackingPage() {
   const closeAddModal = () => {
     setAddModalOpen(false);
     setLogForm(initialLogForm);
+    setEditingCall(null);
   };
 
   return (
@@ -147,7 +177,7 @@ export default function AdminCallTrackingPage() {
           </button>
           <button
             type="button"
-            onClick={() => setAddModalOpen(true)}
+            onClick={() => { setEditingCall(null); setLogForm(initialLogForm); setAddModalOpen(true); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -260,53 +290,54 @@ export default function AdminCallTrackingPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] text-sm">
+            <table className="w-max min-w-[1000px] text-sm table-fixed">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">#</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Date</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Subject</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Company</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Outcome</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Duration</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Rep</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Deal</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Notes</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Recording</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-600">Actions</th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">#</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Date</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Subject</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Outcome</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Duration</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Rep</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Deal</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Notes</th>
+                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Recording</th>
+                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition">
-                    <td className="py-4 px-4 text-body">{idx + 1}</td>
-                    <td className="py-4 px-4 text-body">{row.date}</td>
-                    <td className="py-4 px-4 font-medium text-brand-dark">{row.subject}</td>
-                    <td className="py-4 px-4 text-body">{row.company}</td>
-                    <td className="py-4 px-4">
+                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                    <td className="py-3 px-3 text-body tabular-nums">{idx + 1}</td>
+                    <td className="py-3 px-3 text-body tabular-nums whitespace-nowrap">{row.date}</td>
+                    <td className="py-3 px-3 font-medium text-brand-dark truncate" title={row.subject}>{row.subject}</td>
+                    <td className="py-3 px-3 text-body truncate" title={row.company}>{row.company}</td>
+                    <td className="py-3 px-3">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${OUTCOME_STYLES[row.outcome] || "bg-gray-100 text-gray-700"}`}>
                         {row.outcome}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.duration || "—"}</td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
+                    <td className="py-3 px-3 text-body tabular-nums">{row.duration || "—"}</td>
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2 min-w-0">
                         <span className="w-8 h-8 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-xs shrink-0">
                           {row.repInitials}
                         </span>
-                        <span className="text-body">{row.rep}</span>
+                        <span className="text-body truncate min-w-0" title={row.rep}>{row.rep}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-body">{row.deal}</td>
-                    <td className="py-4 px-4 text-body max-w-[180px] truncate" title={row.notes}>
+                    <td className="py-3 px-3 text-body truncate" title={row.deal}>{row.deal}</td>
+                    <td className="py-3 px-3 text-body min-w-0 truncate" title={row.notes}>
                       {row.notes || "—"}
                     </td>
-                    <td className="py-4 px-4 text-body">{row.recording || "—"}</td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-1">
+                    <td className="py-3 px-3 text-body truncate" title={row.recording}>{row.recording || "—"}</td>
+                    <td className="py-3 px-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
-                          className="p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          onClick={() => openEditCall(row)}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="Edit call"
                         >
                           <Pencil className="w-4 h-4" strokeWidth={2} />
@@ -314,7 +345,7 @@ export default function AdminCallTrackingPage() {
                         <button
                           type="button"
                           onClick={() => handleDelete(row.id)}
-                          className="p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
                           aria-label="Delete call"
                         >
                           <Trash2 className="w-4 h-4" strokeWidth={2} />
@@ -338,7 +369,7 @@ export default function AdminCallTrackingPage() {
           <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
           <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-              <h2 className="text-lg font-bold text-brand-dark">Log Activity</h2>
+              <h2 className="text-lg font-bold text-brand-dark">{editingCall ? "Edit Call Log" : "Log Activity"}</h2>
               <button
                 type="button"
                 onClick={closeAddModal}
@@ -524,7 +555,7 @@ export default function AdminCallTrackingPage() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
               >
                 <Save className="w-4 h-4" strokeWidth={2} />
-                Save Activity
+                {editingCall ? "Save changes" : "Save Activity"}
               </button>
             </div>
           </div>
