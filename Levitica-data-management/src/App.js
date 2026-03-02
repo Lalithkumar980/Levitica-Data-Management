@@ -17,7 +17,6 @@ import SalesDashboard from "./pages/SalesDashboard";
 import SalesOverview from "./pages/Sales/SalesOverview";
 import PipelinePage from "./pages/Sales/PipelinePage";
 import ContactsPage from "./pages/Sales/ContactsPage";
-import KanbanPage from "./pages/Sales/KanbanPage";
 import LeadsPage from "./pages/Sales/LeadsPage";
 import CompaniesPage from "./pages/Sales/CompaniesPage";
 import ActivityLogPage from "./pages/Sales/ActivityLogPage";
@@ -91,7 +90,7 @@ function App() {
           <Route index element={<SalesOverview />} />
           <Route path="pipeline" element={<PipelinePage />} />
           <Route path="contacts" element={<ContactsPage />} />
-          <Route path="kanban" element={<KanbanPage />} />
+          <Route path="kanban" element={<Navigate to="/sales/pipeline" replace />} />
           <Route path="leads" element={<LeadsPage />} />
           <Route path="companies" element={<CompaniesPage />} />
           <Route path="activity" element={<ActivityLogPage />} />

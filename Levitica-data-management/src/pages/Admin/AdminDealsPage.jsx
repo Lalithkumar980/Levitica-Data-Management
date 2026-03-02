@@ -99,6 +99,36 @@ export default function AdminDealsPage() {
 
   const formatCurrency = (n) => "₹" + n.toLocaleString("en-IN");
 
+  const handleExport = () => {
+    const headers = ["#", "Deal Title", "Location", "Company", "Value", "Stage", "Probability (%)", "Product", "Owner", "Close Date", "Follow-up", "Last Activity"];
+    const escape = (v) => {
+      const s = v != null ? String(v) : "";
+      return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = filtered.map((row, idx) => [
+      idx + 1,
+      row.title,
+      row.subtext ?? "",
+      row.company,
+      row.value ?? "",
+      row.stage ?? "",
+      row.probability ?? "",
+      row.product ?? "",
+      row.owner ?? "",
+      row.closeDate ?? "",
+      row.followUp ?? "",
+      row.lastActivity ?? "",
+    ]);
+    const csv = ["\uFEFF" + headers.map(escape).join(","), ...rows.map((r) => r.map(escape).join(","))].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `deals-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast.success(`Exported ${filtered.length} deal${filtered.length !== 1 ? "s" : ""}`);
+  };
+
   const handleDelete = (id) => {
     setDeals((prev) => prev.filter((d) => d.id !== id));
     toast.success("Deal deleted");
@@ -342,6 +372,7 @@ export default function AdminDealsPage() {
               </button>
               <button
                 type="button"
+                onClick={handleExport}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-body hover:bg-gray-50 text-sm font-medium transition"
               >
                 <Download className="w-4 h-4" strokeWidth={2} />

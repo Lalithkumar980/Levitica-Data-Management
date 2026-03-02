@@ -1,5 +1,21 @@
 import React from "react";
+import { toast } from "react-toastify";
 import { Bell, Download, Wallet, TrendingUp, BarChart3, Percent, Activity, Phone } from "lucide-react";
+
+const escapeCsv = (v) => {
+  const s = v != null ? String(v) : "";
+  return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+const downloadCsv = (filename, headers, rows) => {
+  const csv = ["\uFEFF" + headers.map(escapeCsv).join(","), ...rows.map((r) => r.map(escapeCsv).join(","))].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
 
 const PIPELINE_BY_STAGE = [
   { stage: "Lead", count: 1, value: "₹6,06,068" },
@@ -47,6 +63,29 @@ const ACTIVITY_BREAKDOWN = [
 
 export default function AdminReportsPage() {
   const maxLeads = Math.max(...LEADS_BY_SOURCE.map((s) => s.count), 1);
+
+  const handleExportPipelineByStage = () => {
+    const headers = ["Stage", "Count", "Value"];
+    const rows = PIPELINE_BY_STAGE.map((row) => [row.stage, row.count, row.value]);
+    downloadCsv(`pipeline-by-stage-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("Pipeline by Stage exported");
+  };
+
+  const handleExportRepPerformance = () => {
+    const headers = ["Rep", "Total Deals", "Won", "Won Value", "Pipeline Value", "Win Rate", "Calls", "Emails"];
+    const rows = REP_PERFORMANCE.map((row) => [
+      row.name,
+      row.totalDeals,
+      row.won,
+      row.wonValue,
+      row.pipelineValue,
+      row.winRate,
+      row.callsLogged,
+      row.emailsLogged,
+    ]);
+    downloadCsv(`rep-performance-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    toast.success("Rep Performance exported");
+  };
 
   return (
     <>
@@ -160,6 +199,7 @@ export default function AdminReportsPage() {
               <h2 className="font-semibold text-brand-dark">Pipeline by Stage</h2>
               <button
                 type="button"
+                onClick={handleExportPipelineByStage}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-body hover:bg-gray-50 text-sm font-medium transition"
               >
                 <Download className="w-4 h-4" strokeWidth={2} />
@@ -218,6 +258,7 @@ export default function AdminReportsPage() {
             <h2 className="font-semibold text-brand-dark">Rep Performance</h2>
             <button
               type="button"
+              onClick={handleExportRepPerformance}
               className="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-body hover:bg-gray-50 text-sm font-medium transition"
             >
               <Download className="w-4 h-4" strokeWidth={2} />
@@ -225,17 +266,27 @@ export default function AdminReportsPage() {
             </button>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-max min-w-[800px] text-sm table-fixed">
+            <table className="w-full min-w-[800px] text-sm table-fixed">
+              <colgroup>
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "8%" }} />
+                <col style={{ width: "13%" }} />
+                <col style={{ width: "13%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "11%" }} />
+                <col style={{ width: "12%" }} />
+              </colgroup>
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="text-left py-3 px-3 font-semibold text-gray-600">Rep</th>
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Total Deals</th>
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Won</th>
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Won Value</th>
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Pipeline Value</th>
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Win Rate</th>
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Calls</th>
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Emails</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600 tabular-nums">Total Deals</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600 tabular-nums">Won</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600 tabular-nums">Won Value</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600 tabular-nums">Pipeline Value</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600 tabular-nums">Win Rate</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600 tabular-nums">Calls</th>
+                  <th className="text-right py-3 px-3 font-semibold text-gray-600 tabular-nums">Emails</th>
                 </tr>
               </thead>
               <tbody>

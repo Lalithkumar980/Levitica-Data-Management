@@ -10,7 +10,7 @@ export default function HRSidebar() {
   };
 
   return (
-    <aside className="w-64 shrink-0 h-screen flex flex-col bg-white border-r border-gray-200/80 shadow-sm overflow-hidden">
+    <aside className="fixed left-0 top-0 z-20 w-64 h-screen flex flex-col bg-white border-r border-gray-200/80 shadow-sm overflow-hidden">
       <div className="flex flex-col h-full min-h-0 p-4">
         {/* Logo */}
         <div className="flex items-center gap-2.5 pb-4 mb-4 border-b border-gray-100">

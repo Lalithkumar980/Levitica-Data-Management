@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   Filter,
   Users,
-  Kanban,
   Target,
   Building2,
   Briefcase,
@@ -108,15 +107,6 @@ export default function SalesSidebar() {
                 <span className="shrink-0 bg-danger text-white text-[10px] font-semibold min-w-[1.25rem] h-5 rounded-full flex items-center justify-center">
                   7
                 </span>
-              </div>
-            )}
-          </NavLink>
-          <NavLink to="/sales/kanban">
-            {({ isActive }) => (
-              <div className={navClass({ isActive })}>
-                {activeBar(isActive)}
-                <Kanban className="w-5 h-5 shrink-0" strokeWidth={2} />
-                <span className="text-sm">Kanban Board</span>
               </div>
             )}
           </NavLink>
