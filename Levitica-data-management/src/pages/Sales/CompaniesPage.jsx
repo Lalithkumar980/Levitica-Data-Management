@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { Bell, Building2, Plus, Pencil, Trash2, X, Save } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Bell, Building2, Plus, Pencil, Trash2, X, Save, User, LogOut } from "lucide-react";
+
+const SALES_USER = { name: "Vikram Joshi", role: "Sales Rep", email: "vikram.joshi@company.com", initials: "VJ" };
 
 const inputClass =
   "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
@@ -223,7 +225,7 @@ function AddCompanyModal({ open, onClose, onSave, company: editingCompany }) {
             </button>
             <button
               type="submit"
-              className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
             >
               <Save className="w-4 h-4" strokeWidth={2} />
               Save
@@ -297,6 +299,16 @@ export default function CompaniesPage() {
     }
   };
 
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+    };
+    if (profileOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen]);
+
   const filtered = companies.filter((row) => {
     const matchSearch =
       !search ||
@@ -311,13 +323,13 @@ export default function CompaniesPage() {
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 min-w-0">
           <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0" aria-hidden>
             <Building2 className="w-5 h-5" strokeWidth={2} />
           </span>
           <div className="flex flex-col gap-0.5 min-w-0">
-            <h1 className="text-lg font-semibold text-brand-dark leading-tight">Companies</h1>
-            <p className="text-sm text-body leading-snug">Company records and account management.</p>
+            <h1 className="text-lg font-bold text-black leading-tight">Companies</h1>
+            <p className="text-[13px] text-black/70">Company records and account management.</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -336,11 +348,34 @@ export default function CompaniesPage() {
           <button
             type="button"
             onClick={() => { setEditingCompany(null); setShowAddModal(true); }}
-            className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
             Add Company
           </button>
+          <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
+            <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{SALES_USER.initials}</div>
+            </button>
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
+                <div className="px-4 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{SALES_USER.initials}</div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-black truncate">{SALES_USER.name}</p>
+                      <p className="text-xs font-medium text-black/70">{SALES_USER.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{SALES_USER.email}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="py-1">
+                  <button type="button" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-black hover:bg-gray-50 transition text-left"><User className="w-4 h-4 text-gray-500" strokeWidth={2} /> My Profile</button>
+                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left"><LogOut className="w-4 h-4" strokeWidth={2} /> Log out</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -397,27 +432,27 @@ export default function CompaniesPage() {
               </colgroup>
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">#</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Industry</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">City</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Website</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Employees</th>
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Annual Revenue</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Status</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Owner</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Contacts</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Deals</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
+                  <th className="text-right py-3 px-3 font-semibold text-black">#</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Company</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Industry</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">City</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Website</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Employees</th>
+                  <th className="text-right py-3 px-3 font-semibold text-black">Annual Revenue</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Status</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Owner</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Contacts</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Deals</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
-                    <td className="py-3 px-3 text-right text-body tabular-nums align-top">{idx + 1}</td>
+                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition text-black">
+                    <td className="py-3 px-3 text-right text-black tabular-nums align-top">{idx + 1}</td>
                     <td className="py-3 px-3 align-top min-w-0">
                       <div className="min-w-0">
-                        <p className="font-medium text-brand-dark truncate" title={row.name}>{row.name}</p>
+                        <p className="font-medium text-black truncate" title={row.name}>{row.name}</p>
                         {row.description && (
                           <p className="text-xs text-gray-500 mt-0.5 truncate" title={row.description}>{row.description}</p>
                         )}
@@ -428,10 +463,10 @@ export default function CompaniesPage() {
                         {row.industry}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-body truncate align-top" title={row.city}>{row.city}</td>
-                    <td className="py-3 px-3 text-body truncate align-top min-w-0" title={row.website}>{row.website}</td>
-                    <td className="py-3 px-3 text-center text-body tabular-nums align-top">{row.employees}</td>
-                    <td className="py-3 px-3 text-right text-body tabular-nums whitespace-nowrap align-top">{row.annualRevenue}</td>
+                    <td className="py-3 px-3 text-black truncate align-top" title={row.city}>{row.city}</td>
+                    <td className="py-3 px-3 text-black truncate align-top min-w-0" title={row.website}>{row.website}</td>
+                    <td className="py-3 px-3 text-center text-black tabular-nums align-top">{row.employees}</td>
+                    <td className="py-3 px-3 text-right text-black tabular-nums whitespace-nowrap align-top">{row.annualRevenue}</td>
                     <td className="py-3 px-3 text-center align-top">
                       <span
                         className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -446,11 +481,11 @@ export default function CompaniesPage() {
                         <span className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold text-xs shrink-0">
                           {row.ownerInitials}
                         </span>
-                        <span className="text-body truncate min-w-0" title={row.owner}>{row.owner}</span>
+                        <span className="text-black truncate min-w-0" title={row.owner}>{row.owner}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-center text-body tabular-nums align-top">{row.contacts}</td>
-                    <td className="py-3 px-3 text-center text-body tabular-nums align-top">{row.deals}</td>
+                    <td className="py-3 px-3 text-center text-black tabular-nums align-top">{row.contacts}</td>
+                    <td className="py-3 px-3 text-center text-black tabular-nums align-top">{row.deals}</td>
                     <td className="py-3 px-3 text-center align-top">
                       <div className="flex items-center justify-center gap-1">
                         <button

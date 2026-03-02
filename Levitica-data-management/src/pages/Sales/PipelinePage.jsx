@@ -1,6 +1,8 @@
-import React, { useState } from "react";
-import { Bell, Filter, Plus, Pencil, Trash2, Briefcase, Wallet, Trophy, X, Percent } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Bell, Filter, Plus, Pencil, Trash2, Briefcase, Wallet, Trophy, X, Percent, User, LogOut } from "lucide-react";
 import AddDealModal from "./AddDealModal";
+
+const SALES_USER = { name: "Vikram Joshi", role: "Sales Rep", email: "vikram.joshi@company.com", initials: "VJ" };
 
 const STAGE_STYLES = {
   Lead: "bg-gray-100 text-gray-700",
@@ -95,6 +97,16 @@ export default function PipelinePage() {
     }
   };
 
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+    };
+    if (profileOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen]);
+
   const filtered = deals.filter((row) => {
     const matchSearch =
       !search ||
@@ -108,13 +120,13 @@ export default function PipelinePage() {
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 min-w-0">
           <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0" aria-hidden>
             <Briefcase className="w-5 h-5" strokeWidth={2} />
           </span>
           <div className="flex flex-col gap-0.5 min-w-0">
-            <h1 className="text-lg font-semibold text-brand-dark leading-tight">Sales Pipeline</h1>
-            <p className="text-sm text-body leading-snug">Deals, stages, and CRM pipeline view.</p>
+            <h1 className="text-lg font-bold text-black leading-tight">Sales Pipeline</h1>
+            <p className="text-[13px] text-black/70">Deals, stages, and CRM pipeline view.</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -133,11 +145,34 @@ export default function PipelinePage() {
           <button
             type="button"
             onClick={() => { setEditingDeal(null); setShowAddDealModal(true); }}
-            className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
             Add Deal
           </button>
+          <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
+            <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{SALES_USER.initials}</div>
+            </button>
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
+                <div className="px-4 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{SALES_USER.initials}</div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-black truncate">{SALES_USER.name}</p>
+                      <p className="text-xs font-medium text-black/70">{SALES_USER.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{SALES_USER.email}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="py-1">
+                  <button type="button" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-black hover:bg-gray-50 transition text-left"><User className="w-4 h-4 text-gray-500" strokeWidth={2} /> My Profile</button>
+                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left"><LogOut className="w-4 h-4" strokeWidth={2} /> Log out</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -151,75 +186,75 @@ export default function PipelinePage() {
       <div className="flex-1 min-h-0 p-6 overflow-auto">
         {/* Six metric cards - same style as Finance */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <div className="group rounded-2xl bg-gradient-to-br from-brand-soft to-white border border-brand-light/80 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-brand-dark/80 uppercase tracking-wider mb-1.5">Total Deals</p>
-                <p className="text-2xl font-bold text-brand-dark tabular-nums tracking-tight">3</p>
-                <p className="text-xs text-gray-500 mt-1.5">Deals</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Total Deals</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">3</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">Deals</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Briefcase className="w-5 h-5 text-brand" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Briefcase className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-blue-50 to-white border border-blue-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-blue-600/90 uppercase tracking-wider mb-1.5">Active Pipeline</p>
-                <p className="text-2xl font-bold text-blue-700 tabular-nums tracking-tight">1</p>
-                <p className="text-xs text-gray-500 mt-1.5">₹12,00,000</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Active Pipeline</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">1</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">₹12,00,000</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-blue-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Filter className="w-5 h-5 text-blue-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Filter className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-teal-50 to-white border border-teal-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-teal-600/90 uppercase tracking-wider mb-1.5">Won</p>
-                <p className="text-2xl font-bold text-teal-700 tabular-nums tracking-tight">1</p>
-                <p className="text-xs text-gray-500 mt-1.5">₹8,50,000</p>
+                <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Won</p>
+                <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">1</p>
+                <p className="text-xs font-medium text-teal-700/80 mt-1.5">₹8,50,000</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-teal-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Trophy className="w-5 h-5 text-teal-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-teal-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Trophy className="w-6 h-6 text-teal-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-red-50 to-white border border-red-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-red-100 border-2 border-red-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-red-600/90 uppercase tracking-wider mb-1.5">Lost</p>
-                <p className="text-2xl font-bold text-red-700 tabular-nums tracking-tight">1</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-red-800 uppercase tracking-wider mb-1.5">Lost</p>
+                <p className="text-2xl font-bold text-red-900 tabular-nums tracking-tight">1</p>
+                <p className="text-xs font-medium text-red-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-red-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <X className="w-5 h-5 text-red-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-red-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <X className="w-6 h-6 text-red-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-amber-50 to-white border border-amber-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-amber-100 border-2 border-amber-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-amber-600/90 uppercase tracking-wider mb-1.5">Win Rate</p>
-                <p className="text-2xl font-bold text-amber-700 tabular-nums tracking-tight">33%</p>
-                <p className="text-xs text-gray-500 mt-1.5">Rate</p>
+                <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-1.5">Win Rate</p>
+                <p className="text-2xl font-bold text-amber-900 tabular-nums tracking-tight">33%</p>
+                <p className="text-xs font-medium text-amber-700/80 mt-1.5">Rate</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-amber-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Percent className="w-5 h-5 text-amber-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-amber-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Percent className="w-6 h-6 text-amber-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-brand-soft to-white border border-brand-light/80 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-brand-dark/80 uppercase tracking-wider mb-1.5">Avg Deal Value</p>
-                <p className="text-2xl font-bold text-brand-dark tabular-nums tracking-tight">₹7,43,333</p>
-                <p className="text-xs text-gray-500 mt-1.5">Average</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Avg Deal Value</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">₹7,43,333</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">Average</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Wallet className="w-5 h-5 text-brand" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Wallet className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
@@ -261,32 +296,32 @@ export default function PipelinePage() {
             <table className="w-max min-w-[1100px] text-sm table-fixed">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">#</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Contact</th>
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Deal Value</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Stage</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Probability</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Owner</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Source</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Industry</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Follow-up</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Expected Close</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Last Activity</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
+                  <th className="text-right py-3 px-3 font-semibold text-black">#</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Company</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Contact</th>
+                  <th className="text-right py-3 px-3 font-semibold text-black">Deal Value</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Stage</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Probability</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Owner</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Source</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Industry</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Follow-up</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Expected Close</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Last Activity</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
-                    <td className="py-3 px-3 text-right text-body tabular-nums">{idx + 1}</td>
+                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition text-black">
+                    <td className="py-3 px-3 text-right text-black tabular-nums">{idx + 1}</td>
                     <td className="py-3 px-3">
                       <p className="font-medium text-brand-dark truncate" title={row.company}>{row.company}</p>
-                      <p className="text-xs text-body truncate" title={row.location}>{row.location}</p>
+                      <p className="text-xs text-black truncate" title={row.location}>{row.location}</p>
                     </td>
                     <td className="py-3 px-3">
                       <p className="font-medium text-brand-dark truncate" title={row.contact}>{row.contact}</p>
-                      <p className="text-xs text-body truncate" title={row.email}>{row.email}</p>
+                      <p className="text-xs text-black truncate" title={row.email}>{row.email}</p>
                     </td>
                     <td className="py-3 px-3 text-right font-medium text-brand-dark tabular-nums whitespace-nowrap">{row.dealValue}</td>
                     <td className="py-3 px-3">
@@ -310,7 +345,7 @@ export default function PipelinePage() {
                         <span className="w-7 h-7 rounded-full bg-brand-soft flex items-center justify-center text-brand font-semibold text-xs shrink-0">
                           {row.ownerInitials}
                         </span>
-                        <span className="text-body truncate" title={row.owner}>{row.owner}</span>
+                        <span className="text-black truncate" title={row.owner}>{row.owner}</span>
                       </div>
                     </td>
                     <td className="py-3 px-3">
@@ -318,10 +353,10 @@ export default function PipelinePage() {
                         {row.source}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-body truncate" title={row.industry}>{row.industry}</td>
-                    <td className="py-3 px-3 text-center text-body tabular-nums whitespace-nowrap">{row.followUp || "-"}</td>
-                    <td className="py-3 px-3 text-center text-body tabular-nums whitespace-nowrap">{row.expectedClose}</td>
-                    <td className="py-3 px-3 text-center text-body tabular-nums whitespace-nowrap">{row.lastActivity}</td>
+                    <td className="py-3 px-3 text-black truncate" title={row.industry}>{row.industry}</td>
+                    <td className="py-3 px-3 text-center text-black tabular-nums whitespace-nowrap">{row.followUp || "-"}</td>
+                    <td className="py-3 px-3 text-center text-black tabular-nums whitespace-nowrap">{row.expectedClose}</td>
+                    <td className="py-3 px-3 text-center text-black tabular-nums whitespace-nowrap">{row.lastActivity}</td>
                     <td className="py-3 px-3 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <button

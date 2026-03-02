@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { Bell, Users, UserCheck, UserPlus, Target, Plus, Pencil, Trash2, X, Save, Calendar } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Bell, Users, UserCheck, UserPlus, Target, Plus, Pencil, Trash2, X, Save, Calendar, User, LogOut } from "lucide-react";
+
+const SALES_USER = { name: "Vikram Joshi", role: "Sales Rep", email: "vikram.joshi@company.com", initials: "VJ" };
 
 const inputClass = "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
 const labelClass = "block text-xs font-medium text-body uppercase tracking-wider mb-1.5";
@@ -199,7 +201,7 @@ function AddContactModal({ open, onClose, onSave, contact: editingContact }) {
             <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition">
               Cancel
             </button>
-            <button type="submit" className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition">
+            <button type="submit" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition">
               <Save className="w-4 h-4" strokeWidth={2} />
               Save
             </button>
@@ -263,6 +265,15 @@ export default function ContactsPage() {
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [showAddContactModal, setShowAddContactModal] = useState(false);
   const [editingContact, setEditingContact] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+    };
+    if (profileOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen]);
 
   const handleSaveContact = (c, isEdit) => {
     if (isEdit) {
@@ -292,13 +303,13 @@ export default function ContactsPage() {
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 min-w-0">
           <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0" aria-hidden>
             <Users className="w-5 h-5" strokeWidth={2} />
           </span>
           <div className="flex flex-col gap-0.5 min-w-0">
-            <h1 className="text-lg font-semibold text-brand-dark leading-tight">Contacts</h1>
-            <p className="text-sm text-body leading-snug">Manage CRM contacts and relationships.</p>
+            <h1 className="text-lg font-bold text-black leading-tight">Contacts</h1>
+            <p className="text-[13px] text-black/70">Manage CRM contacts and relationships.</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -317,11 +328,34 @@ export default function ContactsPage() {
           <button
             type="button"
             onClick={() => { setEditingContact(null); setShowAddContactModal(true); }}
-            className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
             Add Contact
           </button>
+          <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
+            <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{SALES_USER.initials}</div>
+            </button>
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
+                <div className="px-4 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{SALES_USER.initials}</div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-black truncate">{SALES_USER.name}</p>
+                      <p className="text-xs font-medium text-black/70">{SALES_USER.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{SALES_USER.email}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="py-1">
+                  <button type="button" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-black hover:bg-gray-50 transition text-left"><User className="w-4 h-4 text-gray-500" strokeWidth={2} /> My Profile</button>
+                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left"><LogOut className="w-4 h-4" strokeWidth={2} /> Log out</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -335,27 +369,27 @@ export default function ContactsPage() {
       <div className="flex-1 min-h-0 p-6 overflow-auto">
         {/* Four summary cards - same style as Finance */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="group rounded-2xl bg-gradient-to-br from-brand-soft to-white border border-brand-light/80 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-brand-dark/80 uppercase tracking-wider mb-1.5">Total Contacts</p>
-                <p className="text-2xl font-bold text-brand-dark tabular-nums tracking-tight">2</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Total Contacts</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">2</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Users className="w-5 h-5 text-brand" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Users className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-teal-50 to-white border border-teal-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-teal-600/90 uppercase tracking-wider mb-1.5">Customers</p>
-                <p className="text-2xl font-bold text-teal-700 tabular-nums tracking-tight">1</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Customers</p>
+                <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">1</p>
+                <p className="text-xs font-medium text-teal-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-teal-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <UserCheck className="w-5 h-5 text-teal-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-teal-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <UserCheck className="w-6 h-6 text-teal-700" strokeWidth={2} />
               </span>
             </div>
           </div>
@@ -371,15 +405,15 @@ export default function ContactsPage() {
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-blue-50 to-white border border-blue-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-blue-600/90 uppercase tracking-wider mb-1.5">Leads</p>
-                <p className="text-2xl font-bold text-blue-700 tabular-nums tracking-tight">0</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Leads</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">0</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-blue-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <UserPlus className="w-5 h-5 text-blue-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <UserPlus className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
@@ -417,25 +451,25 @@ export default function ContactsPage() {
             <table className="w-max min-w-[1000px] text-sm table-fixed">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">#</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Name</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Title</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Email</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Phone</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">City</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Status</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Source</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Owner</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Last Contact</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Tags</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
+                  <th className="text-right py-3 px-3 font-semibold text-black">#</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Name</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Company</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Title</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Email</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Phone</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">City</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Status</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Source</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Owner</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Last Contact</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Tags</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
-                    <td className="py-3 px-3 text-right text-body tabular-nums">{idx + 1}</td>
+                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition text-black">
+                    <td className="py-3 px-3 text-right text-black tabular-nums">{idx + 1}</td>
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
                         <span className="w-9 h-9 rounded-full bg-brand-soft flex items-center justify-center text-brand font-semibold text-xs shrink-0">
@@ -444,11 +478,11 @@ export default function ContactsPage() {
                         <span className="font-medium text-brand-dark">{row.name}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-body truncate" title={row.company}>{row.company}</td>
-                    <td className="py-3 px-3 text-body truncate" title={row.title}>{row.title}</td>
-                    <td className="py-3 px-3 text-body truncate" title={row.email}>{row.email}</td>
-                    <td className="py-3 px-3 text-body truncate" title={row.phone}>{row.phone}</td>
-                    <td className="py-3 px-3 text-body truncate" title={row.city}>{row.city}</td>
+                    <td className="py-3 px-3 text-black truncate" title={row.company}>{row.company}</td>
+                    <td className="py-3 px-3 text-black truncate" title={row.title}>{row.title}</td>
+                    <td className="py-3 px-3 text-black truncate" title={row.email}>{row.email}</td>
+                    <td className="py-3 px-3 text-black truncate" title={row.phone}>{row.phone}</td>
+                    <td className="py-3 px-3 text-black truncate" title={row.city}>{row.city}</td>
                     <td className="py-3 px-3">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[row.status] || "bg-gray-100 text-gray-700"}`}>
                         {row.status}
@@ -467,7 +501,7 @@ export default function ContactsPage() {
                         <span className="text-body truncate" title={row.owner}>{row.owner}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-center text-body tabular-nums whitespace-nowrap">{row.lastContact}</td>
+                    <td className="py-3 px-3 text-center text-black tabular-nums whitespace-nowrap">{row.lastContact}</td>
                     <td className="py-3 px-3">
                       <div className="flex flex-wrap gap-1">
                         {(row.tags?.length ? row.tags : ["-"]).map((tag) => (

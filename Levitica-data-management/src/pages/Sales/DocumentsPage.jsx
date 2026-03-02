@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Bell, Folder, Plus, Pencil, Eye, FileText, FileAudio, X, Save, Paperclip, Calendar, Trash2 } from "lucide-react";
+import { Bell, Folder, Plus, Pencil, Eye, FileText, FileAudio, X, Save, Paperclip, Calendar, Trash2, User, LogOut } from "lucide-react";
+
+const SALES_USER = { name: "Vikram Joshi", role: "Sales Rep", email: "vikram.joshi@company.com", initials: "VJ" };
 
 const inputClass =
   "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
@@ -288,7 +290,7 @@ function UploadDocumentModal({ open, onClose, onSave, document: editingDoc }) {
             </button>
             <button
               type="submit"
-              className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
             >
               <Save className="w-4 h-4" strokeWidth={2} />
               Save
@@ -506,6 +508,15 @@ export default function DocumentsPage() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [editingDoc, setEditingDoc] = useState(null);
   const [viewingDoc, setViewingDoc] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+    };
+    if (profileOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen]);
 
   const handleSaveDocument = (doc, isEdit) => {
     if (isEdit) {
@@ -548,13 +559,13 @@ export default function DocumentsPage() {
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 min-w-0">
           <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0" aria-hidden>
             <Folder className="w-5 h-5" strokeWidth={2} />
           </span>
           <div className="flex flex-col gap-0.5 min-w-0">
-            <h1 className="text-lg font-semibold text-brand-dark leading-tight">Documents</h1>
-            <p className="text-sm text-body leading-snug">File management and document storage.</p>
+            <h1 className="text-lg font-bold text-black leading-tight">Documents</h1>
+            <p className="text-[13px] text-black/70">File management and document storage.</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -573,11 +584,34 @@ export default function DocumentsPage() {
           <button
             type="button"
             onClick={() => { setEditingDoc(null); setShowUploadModal(true); }}
-            className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
             Upload File
           </button>
+          <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
+            <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{SALES_USER.initials}</div>
+            </button>
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
+                <div className="px-4 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{SALES_USER.initials}</div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-black truncate">{SALES_USER.name}</p>
+                      <p className="text-xs font-medium text-black/70">{SALES_USER.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{SALES_USER.email}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="py-1">
+                  <button type="button" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-black hover:bg-gray-50 transition text-left"><User className="w-4 h-4 text-gray-500" strokeWidth={2} /> My Profile</button>
+                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left"><LogOut className="w-4 h-4" strokeWidth={2} /> Log out</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -596,51 +630,51 @@ export default function DocumentsPage() {
       <div className="flex-1 min-h-0 p-6 overflow-auto">
         {/* Summary cards - same style as Finance */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="group rounded-2xl bg-gradient-to-br from-brand-soft to-white border border-brand-light/80 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-brand-dark/80 uppercase tracking-wider mb-1.5">Total Files</p>
-                <p className="text-2xl font-bold text-brand-dark tabular-nums tracking-tight">{totalFiles}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Files</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Total Files</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">{totalFiles}</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">Files</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Folder className="w-5 h-5 text-brand" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Folder className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-violet-50 to-white border border-violet-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-violet-100 border-2 border-violet-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-violet-600/90 uppercase tracking-wider mb-1.5">Call Recordings</p>
-                <p className="text-2xl font-bold text-violet-700 tabular-nums tracking-tight">{callRecordings}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Recordings</p>
+                <p className="text-[11px] font-bold text-violet-800 uppercase tracking-wider mb-1.5">Call Recordings</p>
+                <p className="text-2xl font-bold text-violet-900 tabular-nums tracking-tight">{callRecordings}</p>
+                <p className="text-xs font-medium text-violet-700/80 mt-1.5">Recordings</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-violet-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <FileAudio className="w-5 h-5 text-violet-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-violet-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileAudio className="w-6 h-6 text-violet-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-teal-50 to-white border border-teal-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-teal-600/90 uppercase tracking-wider mb-1.5">Proposals</p>
-                <p className="text-2xl font-bold text-teal-700 tabular-nums tracking-tight">{proposals}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Proposals</p>
+                <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">{proposals}</p>
+                <p className="text-xs font-medium text-teal-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-teal-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <FileText className="w-5 h-5 text-teal-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-teal-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileText className="w-6 h-6 text-teal-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-blue-50 to-white border border-blue-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-blue-600/90 uppercase tracking-wider mb-1.5">Contracts</p>
-                <p className="text-2xl font-bold text-blue-700 tabular-nums tracking-tight">{contracts}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Contracts</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">{contracts}</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-blue-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <FileText className="w-5 h-5 text-blue-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileText className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
@@ -678,28 +712,28 @@ export default function DocumentsPage() {
             <table className="w-max min-w-[1000px] text-sm table-fixed">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">#</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">File Name</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Type</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Linked Deal</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Uploaded By</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Date</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Size</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Notes</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
+                  <th className="text-right py-3 px-3 font-semibold text-black">#</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">File Name</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Type</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Company</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Linked Deal</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Uploaded By</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Date</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Size</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Notes</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
                   <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
-                    <td className="py-3 px-3 text-right text-body tabular-nums">{idx + 1}</td>
+                    <td className="py-3 px-3 text-right text-black tabular-nums">{idx + 1}</td>
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="w-8 h-8 rounded-lg bg-brand-soft flex items-center justify-center text-brand shrink-0">
                           <FileIcon type={row.type} className="w-4 h-4" />
                         </span>
-                        <span className="font-medium text-brand-dark truncate" title={row.fileName}>{row.fileName}</span>
+                        <span className="font-medium text-black truncate" title={row.fileName}>{row.fileName}</span>
                       </div>
                     </td>
                     <td className="py-3 px-3">
@@ -715,7 +749,7 @@ export default function DocumentsPage() {
                         {row.type}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-body truncate" title={row.company}>{row.company}</td>
+                    <td className="py-3 px-3 text-black truncate" title={row.company}>{row.company}</td>
                     <td className="py-3 px-3">
                       <button type="button" className="text-brand hover:underline font-medium text-left truncate max-w-full" title={row.linkedDeal}>
                         {row.linkedDeal}
@@ -726,12 +760,12 @@ export default function DocumentsPage() {
                         <span className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold text-xs shrink-0">
                           {row.uploadedByInitials}
                         </span>
-                        <span className="text-body truncate" title={row.uploadedBy}>{row.uploadedBy}</span>
+                        <span className="text-black truncate" title={row.uploadedBy}>{row.uploadedBy}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-center text-body tabular-nums whitespace-nowrap">{row.date}</td>
-                    <td className="py-3 px-3 text-body tabular-nums">{row.size}</td>
-                    <td className="py-3 px-3 text-body truncate max-w-0" title={row.notes}>{row.notes}</td>
+                    <td className="py-3 px-3 text-center text-black tabular-nums whitespace-nowrap">{row.date}</td>
+                    <td className="py-3 px-3 text-black tabular-nums">{row.size}</td>
+                    <td className="py-3 px-3 text-black truncate max-w-0" title={row.notes}>{row.notes}</td>
                     <td className="py-3 px-3 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <button

@@ -237,7 +237,7 @@ export default function AddDealModal({ open, onClose, onSave, deal: editingDeal 
             <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition">
               Cancel
             </button>
-            <button type="submit" className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition">
+            <button type="submit" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition">
               <Save className="w-4 h-4" strokeWidth={2} />
               Save Deal
             </button>
