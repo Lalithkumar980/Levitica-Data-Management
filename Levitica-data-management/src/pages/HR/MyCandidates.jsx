@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Bell, Search, UserPlus, X, Save, Calendar, Pencil, Users, FileCheck, Clock, UserCheck, UserX, Upload, FileSpreadsheet } from "lucide-react";
+import { Bell, Search, UserPlus, X, Save, Calendar, Pencil, Users, FileCheck, Clock, UserCheck, UserX, Upload, FileSpreadsheet, ArrowLeft } from "lucide-react";
 import * as XLSX from "xlsx";
 
 const getInitials = (name) =>
@@ -118,7 +118,7 @@ function parseTechnical(technical) {
   return { round: parts[0] || "Not Yet", type: parts[1] || "" };
 }
 
-function AddCandidateModal({ open, onClose, onSave, candidate: editingCandidate }) {
+function AddCandidateModal({ open, onClose, onSave, candidate: editingCandidate, step, onStepChange, onBulkImport }) {
   const [form, setForm] = useState(defaultForm);
 
   useEffect(() => {
@@ -187,6 +187,70 @@ function AddCandidateModal({ open, onClose, onSave, candidate: editingCandidate 
   };
 
   if (!open) return null;
+
+  const handleBulkImportThenClose = (candidates) => {
+    onBulkImport?.(candidates);
+    onClose();
+  };
+
+  if (step === "import") {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
+        <div className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col bg-white rounded-2xl shadow-xl border border-gray-100">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+            <h2 className="text-lg font-bold text-brand-dark">Import from Excel</h2>
+            <button type="button" onClick={onClose} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
+              <X className="w-5 h-5" strokeWidth={2} />
+            </button>
+          </div>
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <ImportCandidatesContent onImport={handleBulkImportThenClose} onClose={onClose} onBack={() => onStepChange?.("choice")} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!editingCandidate && step === "choice") {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
+        <div className="relative z-10 w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <h2 className="text-lg font-bold text-brand-dark">Add Candidate</h2>
+            <button type="button" onClick={onClose} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
+              <X className="w-5 h-5" strokeWidth={2} />
+            </button>
+          </div>
+          <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => onStepChange?.("form")}
+              className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-gray-200 hover:border-brand hover:bg-brand-soft/30 transition text-left"
+            >
+              <span className="w-12 h-12 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0">
+                <UserPlus className="w-6 h-6" strokeWidth={2} />
+              </span>
+              <span className="font-semibold text-brand-dark">Add single candidate</span>
+              <span className="text-sm text-body text-center">Add one candidate manually with the full form.</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onStepChange?.("import")}
+              className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-gray-200 hover:border-brand hover:bg-brand-soft/30 transition text-left"
+            >
+              <span className="w-12 h-12 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0">
+                <FileSpreadsheet className="w-6 h-6" strokeWidth={2} />
+              </span>
+              <span className="font-semibold text-brand-dark">Import from Excel</span>
+              <span className="text-sm text-body text-center">Upload a CSV or Excel file to add many candidates at once.</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -470,7 +534,8 @@ function buildHeaderMap(rawHeaders) {
   };
 }
 
-function ImportCandidatesModal({ open, onClose, onImport }) {
+/** Reusable import UI: drag-drop, preview, footer. Use in modal or inside Add Candidate flow. onBack = go back (e.g. to choice step); if absent, footer shows Cancel instead. */
+function ImportCandidatesContent({ onImport, onClose, onBack }) {
   const [dragOver, setDragOver] = useState(false);
   const [file, setFile] = useState(null);
   const [error, setError] = useState("");
@@ -583,25 +648,21 @@ function ImportCandidatesModal({ open, onClose, onImport }) {
   const handleImport = () => {
     if (parsed.length) {
       onImport(parsed);
-      handleClose();
+      reset();
+      onClose();
     }
+  };
+
+  const handleBack = () => {
+    reset();
+    onBack?.();
   };
 
   const previewCount = Math.min(10, parsed.length);
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={handleClose} aria-hidden />
-      <div className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col bg-white rounded-2xl shadow-xl border border-gray-100">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">Import from Excel / CSV</h2>
-          <button type="button" onClick={handleClose} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
-            <X className="w-5 h-5" strokeWidth={2} />
-          </button>
-        </div>
-        <div className="p-6 overflow-y-auto flex-1 min-h-0 space-y-4">
+    <>
+      <div className="p-6 overflow-y-auto flex-1 min-h-0 space-y-4">
           <p className="text-sm text-body">
             Upload a .csv or .xlsx file. The first row must be headers. Expected columns (case-insensitive): Name, Position, Department, Interview Date, Came, Screening, Technical, HR Round, Offer, Onboarding, Joining Date, Note, Referred By, Recruiter.
           </p>
@@ -665,17 +726,41 @@ function ImportCandidatesModal({ open, onClose, onImport }) {
               </div>
             </>
           )}
-        </div>
-        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between shrink-0">
+      </div>
+      <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between shrink-0">
+        {onBack != null ? (
+          <button type="button" onClick={handleBack} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition">
+            <ArrowLeft className="w-4 h-4" strokeWidth={2} />
+            Back
+          </button>
+        ) : (
           <button type="button" onClick={handleClose} className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition">Cancel</button>
-          {parsed.length > 0 ? (
-            <button type="button" onClick={handleImport} className="px-4 py-2.5 rounded-xl bg-brand text-white font-semibold hover:bg-brand-dark transition text-sm">
-              Import {parsed.length} candidate{parsed.length !== 1 ? "s" : ""}
-            </button>
-          ) : (
-            <span className="text-sm text-gray-400">Upload a file to continue</span>
-          )}
+        )}
+        {parsed.length > 0 ? (
+          <button type="button" onClick={handleImport} className="px-4 py-2.5 rounded-xl bg-brand text-white font-semibold hover:bg-brand-dark transition text-sm">
+            Import {parsed.length} candidate{parsed.length !== 1 ? "s" : ""}
+          </button>
+        ) : (
+          <span className="text-sm text-gray-400">Upload a file to continue</span>
+        )}
+      </div>
+    </>
+  );
+}
+
+function ImportCandidatesModal({ open, onClose, onImport }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
+      <div className="relative z-10 w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col bg-white rounded-2xl shadow-xl border border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+          <h2 className="text-lg font-bold text-brand-dark">Import from Excel / CSV</h2>
+          <button type="button" onClick={onClose} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
+            <X className="w-5 h-5" strokeWidth={2} />
+          </button>
         </div>
+        <ImportCandidatesContent onImport={onImport} onClose={onClose} />
       </div>
     </div>
   );
@@ -686,8 +771,13 @@ export default function MyCandidates() {
   const [search, setSearch] = useState("");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editingCandidate, setEditingCandidate] = useState(null);
+  const [addStep, setAddStep] = useState("choice");
 
-  const [importModalOpen, setImportModalOpen] = useState(false);
+  const handleCloseAddModal = () => {
+    setAddModalOpen(false);
+    setEditingCandidate(null);
+    setAddStep("choice");
+  };
 
   const handleSaveCandidate = (payload, isEdit) => {
     if (isEdit) {
@@ -697,12 +787,25 @@ export default function MyCandidates() {
     }
     setEditingCandidate(null);
     setAddModalOpen(false);
+    setAddStep("choice");
   };
 
   const handleBulkImport = (candidatesToAdd) => {
     if (candidatesToAdd?.length) {
       setCandidates((prev) => [...candidatesToAdd, ...prev]);
     }
+  };
+
+  const openAddModal = () => {
+    setEditingCandidate(null);
+    setAddStep("choice");
+    setAddModalOpen(true);
+  };
+
+  const openEditModal = (candidate) => {
+    setEditingCandidate(candidate);
+    setAddStep("form");
+    setAddModalOpen(true);
   };
 
   return (
@@ -732,33 +835,23 @@ export default function MyCandidates() {
           </button>
           <button
             type="button"
-            onClick={() => { setEditingCandidate(null); setAddModalOpen(true); }}
+            onClick={openAddModal}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand text-white font-semibold hover:bg-brand-dark transition"
           >
             <UserPlus className="w-5 h-5" strokeWidth={2} />
             Add Candidate
-          </button>
-          <button
-            type="button"
-            onClick={() => setImportModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-body font-semibold hover:bg-gray-50 transition"
-          >
-            <Upload className="w-5 h-5" strokeWidth={2} />
-            Import from Excel
           </button>
         </div>
       </header>
 
       <AddCandidateModal
         open={addModalOpen}
-        onClose={() => { setAddModalOpen(false); setEditingCandidate(null); }}
+        onClose={handleCloseAddModal}
         onSave={handleSaveCandidate}
         candidate={editingCandidate}
-      />
-      <ImportCandidatesModal
-        open={importModalOpen}
-        onClose={() => setImportModalOpen(false)}
-        onImport={handleBulkImport}
+        step={addStep}
+        onStepChange={setAddStep}
+        onBulkImport={handleBulkImport}
       />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
@@ -954,7 +1047,7 @@ export default function MyCandidates() {
                       <div className="flex items-center justify-center gap-1">
                         <button
                           type="button"
-                          onClick={() => { setEditingCandidate(c); setAddModalOpen(true); }}
+                          onClick={() => openEditModal(c)}
                           className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
                           aria-label="Edit candidate"
                         >
