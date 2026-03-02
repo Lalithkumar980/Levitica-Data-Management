@@ -12,60 +12,61 @@ import {
 export default function FinanceSidebar() {
   const navigate = useNavigate();
 
-  const handleSignOut = () => navigate("/");
-
-  const navClass = ({ isActive }) =>
-    `group relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-      isActive ? "bg-brand-soft text-brand-dark font-semibold" : "text-gray-600 hover:bg-gray-50"
-    }`;
-  const activeBar = (isActive) =>
-    isActive ? (
-      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand rounded-r" />
-    ) : null;
+  const handleSignOut = () => {
+    navigate("/");
+  };
 
   return (
-    <aside className="fixed left-0 top-0 z-20 w-64 h-screen flex flex-col bg-white border-r border-gray-200/80 shadow-sm overflow-hidden">
+    <aside
+      className="fixed left-0 top-0 z-20 w-64 h-screen flex flex-col bg-white border-r border-gray-200 shadow-sm overflow-hidden"
+      style={{ fontFamily: "Roboto, sans-serif" }}
+    >
       <div className="flex flex-col h-full min-h-0 p-4">
-        <div className="flex items-center gap-2.5 pb-4 mb-4 border-b border-gray-100">
-          <div className="w-9 h-9 rounded-lg bg-brand flex items-center justify-center text-white font-bold text-xs shrink-0">
-            LD
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-brand-dark truncate">Levitica</p>
-            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Enterprise</p>
-          </div>
+        {/* Company impression – logo and name in row */}
+        <div className="shrink-0 px-2 py-4 mb-4 border-b border-gray-100">
+          <NavLink to="/finance" className="flex flex-row items-center w-full py-1 rounded-lg hover:bg-gray-50/80 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-inset">
+            <img
+              src="/assets/logo.png"
+              alt="Levitica"
+              className="h-20 w-auto max-w-[160px] object-contain shrink-0"
+            />
+            <div className="flex flex-col gap-0 min-w-0">
+              <span className="text-sm font-bold text-gray-900 truncate">Levitica</span>
+              <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Enterprise</span>
+            </div>
+          </NavLink>
         </div>
 
-        <div className="flex items-center gap-3 py-3 mb-4 border-b border-gray-100">
-          <div className="w-9 h-9 rounded-full bg-[#0d9488] flex items-center justify-center text-white font-semibold text-xs shrink-0">
-            SA
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-gray-800 truncate">Suresh Agarwal</p>
-            <p className="text-xs text-gray-500">Finance Manager</p>
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-success mt-0.5" aria-hidden />
-          </div>
-        </div>
-
+        {/* Nav */}
         <nav className="flex-1 space-y-0.5 overflow-y-auto min-h-0">
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-3 py-2">Overview</p>
+          <p className="text-[10px] font-bold text-black/60 uppercase tracking-wider px-3 py-2">Overview</p>
           <NavLink to="/finance" end>
             {({ isActive }) => (
-              <div className={navClass({ isActive })}>
-                {activeBar(isActive)}
+              <div
+                className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-200
+                  ${isActive ? "bg-blue-500 text-white font-bold" : "text-black font-semibold hover:bg-blue-50 hover:text-blue-600"}`}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-600 rounded-r" />
+                )}
                 <LayoutDashboard className="w-5 h-5 shrink-0" strokeWidth={2} />
                 <span className="text-sm">Dashboard</span>
               </div>
             )}
           </NavLink>
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-3 py-2 mt-3">Finance</p>
+          <p className="text-[10px] font-bold text-black/60 uppercase tracking-wider px-3 py-2 mt-3">Finance</p>
           <NavLink to="/finance/invoices">
             {({ isActive }) => (
-              <div className={navClass({ isActive })}>
-                {activeBar(isActive)}
+              <div
+                className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-200
+                  ${isActive ? "bg-blue-500 text-white font-bold" : "text-black font-semibold hover:bg-blue-50 hover:text-blue-600"}`}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-600 rounded-r" />
+                )}
                 <FileText className="w-5 h-5 shrink-0" strokeWidth={2} />
                 <span className="text-sm flex-1 min-w-0 truncate">Invoices</span>
-                <span className="shrink-0 bg-danger text-white text-[10px] font-semibold min-w-[1.25rem] h-5 rounded-full flex items-center justify-center">
+                <span className="shrink-0 bg-red-500 text-white text-[10px] font-bold min-w-[1.25rem] h-5 rounded-full flex items-center justify-center">
                   4
                 </span>
               </div>
@@ -73,8 +74,13 @@ export default function FinanceSidebar() {
           </NavLink>
           <NavLink to="/finance/expenses">
             {({ isActive }) => (
-              <div className={navClass({ isActive })}>
-                {activeBar(isActive)}
+              <div
+                className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-200
+                  ${isActive ? "bg-blue-500 text-white font-bold" : "text-black font-semibold hover:bg-blue-50 hover:text-blue-600"}`}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-600 rounded-r" />
+                )}
                 <Wallet className="w-5 h-5 shrink-0" strokeWidth={2} />
                 <span className="text-sm">Expenses</span>
               </div>
@@ -82,8 +88,13 @@ export default function FinanceSidebar() {
           </NavLink>
           <NavLink to="/finance/payments">
             {({ isActive }) => (
-              <div className={navClass({ isActive })}>
-                {activeBar(isActive)}
+              <div
+                className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-200
+                  ${isActive ? "bg-blue-500 text-white font-bold" : "text-black font-semibold hover:bg-blue-50 hover:text-blue-600"}`}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-600 rounded-r" />
+                )}
                 <Receipt className="w-5 h-5 shrink-0" strokeWidth={2} />
                 <span className="text-sm">Payments Received</span>
               </div>
@@ -91,8 +102,13 @@ export default function FinanceSidebar() {
           </NavLink>
           <NavLink to="/finance/pl-report">
             {({ isActive }) => (
-              <div className={navClass({ isActive })}>
-                {activeBar(isActive)}
+              <div
+                className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-200
+                  ${isActive ? "bg-blue-500 text-white font-bold" : "text-black font-semibold hover:bg-blue-50 hover:text-blue-600"}`}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-600 rounded-r" />
+                )}
                 <BarChart3 className="w-5 h-5 shrink-0" strokeWidth={2} />
                 <span className="text-sm">P&L Report</span>
               </div>
@@ -100,14 +116,15 @@ export default function FinanceSidebar() {
           </NavLink>
         </nav>
 
+        {/* Logout */}
         <div className="pt-3 mt-auto border-t border-gray-100">
           <button
             type="button"
             onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-red-50 hover:text-danger transition-colors text-left"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black font-semibold hover:bg-blue-50 hover:text-blue-600 transition-colors duration-200 text-left"
           >
             <LogOut className="w-5 h-5 shrink-0" strokeWidth={2} />
-            <span className="text-sm font-medium">Logout</span>
+            <span className="text-sm">Logout</span>
           </button>
         </div>
       </div>

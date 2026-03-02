@@ -412,7 +412,7 @@ function AddCandidateModal({ open, onClose, onSave, candidate: editingCandidate,
             <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl text-body font-medium hover:bg-gray-100 transition">
               Cancel
             </button>
-            <button type="submit" className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand text-white font-semibold hover:bg-brand-dark transition">
+            <button type="submit" className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-brand-blue transition">
               <Save className="w-4 h-4" strokeWidth={2} />
               Save Candidate
             </button>
@@ -528,7 +528,7 @@ function buildHeaderMap(rawHeaders) {
     offer: getKey(HEADER_ALIASES.offer),
     onboarding: getKey(HEADER_ALIASES.onboarding),
     "joining date": getKey(HEADER_ALIASES["joining date"]),
-    note: getKey(HEADER_ALIASES.note),
+    note: getKey(HEADER_ALIASES.Note),
     "referred by": getKey(HEADER_ALIASES["referred by"]),
     recruiter: getKey(HEADER_ALIASES.recruiter),
   };
@@ -1020,7 +1020,7 @@ export default function MyCandidates() {
             <table className="w-max min-w-[1100px] text-sm table-fixed">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-right py-3 px-3 font-semibold text-black">S.no</th>
+                  <th className="text-right py-3 px-3 font-semibold text-black">S.No</th>
                   <th className="text-left py-3 px-3 font-semibold text-black">Candidate</th>
                   <th className="text-left py-3 px-3 font-semibold text-black">Position / Dept</th>
                   <th className="text-left py-3 px-3 font-semibold text-black">Interview Date</th>

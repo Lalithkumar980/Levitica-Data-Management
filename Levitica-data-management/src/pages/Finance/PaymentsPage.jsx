@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Bell, Receipt, Plus, Download, Pencil, X, Save, Wallet, Hash, Calendar } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Bell, Receipt, Plus, Download, Pencil, X, Save, Wallet, Hash, Calendar, User, LogOut } from "lucide-react";
 
 const inputClass = "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
 const labelClass = "block text-xs font-medium text-body uppercase tracking-wider mb-1.5";
@@ -72,7 +72,7 @@ function RecordPaymentModal({ open, onClose, onSave, payment: editingPayment }) 
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">{editingPayment ? "Edit Payment" : "Record Payment"}</h2>
+          <h2 className="text-lg font-bold text-blue-500">{editingPayment ? "Edit Payment" : "Record Payment"}</h2>
           <button type="button" onClick={onClose} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
             <X className="w-5 h-5" strokeWidth={2} />
           </button>
@@ -123,7 +123,7 @@ function RecordPaymentModal({ open, onClose, onSave, payment: editingPayment }) 
             <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition">
               Cancel
             </button>
-            <button type="submit" className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition">
+            <button type="submit" className="bg-blue-500 flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition">
               <Save className="w-4 h-4" strokeWidth={2} />
               Save
             </button>
@@ -144,11 +144,28 @@ const INITIAL_PAYMENTS = [
   { id: 7, client: "Dev Mahajan & Co", amount: "₹14,000", date: "2025-01-20", method: "UPI", referenceNo: "UPI-DM-20250120", invoiceRef: "Inv3", notes: "Partial - training advance" },
 ];
 
+const USER_PROFILE = {
+  name: "Suresh Agarwal",
+  role: "Finance Manager",
+  email: "suresh.agarwal@company.com",
+  initials: "SA",
+};
+
 export default function PaymentsPage() {
   const [payments, setPayments] = useState(INITIAL_PAYMENTS);
   const [search, setSearch] = useState("");
   const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+    };
+    if (profileOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen]);
 
   const filtered = payments.filter(
     (row) =>
@@ -165,7 +182,7 @@ export default function PaymentsPage() {
       }
       return s;
     };
-    const headers = ["S.no", "Client", "Amount", "Date", "Method", "Reference #", "Invoice Ref", "Notes"];
+    const headers = ["S.No", "Client", "Amount", "Date", "Method", "Reference #", "Invoice Ref", "Notes"];
     const rows = filtered.map((row, idx) => [
       idx + 1,
       row.client,
@@ -197,8 +214,8 @@ export default function PaymentsPage() {
             <Receipt className="w-5 h-5" strokeWidth={2} />
           </span>
           <div className="flex flex-col gap-0.5 min-w-0">
-            <h1 className="text-lg font-semibold text-brand-dark leading-tight">Payments Received</h1>
-            <p className="text-sm text-body leading-snug">Record and track all incoming payments and payment ledger.</p>
+            <h1 className="text-lg font-bold text-black leading-tight">Payments Received</h1>
+            <p className="text-[13px] text-black/70">Record and track all incoming payments and payment ledger.</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -217,11 +234,57 @@ export default function PaymentsPage() {
           <button
             type="button"
             onClick={() => { setEditingPayment(null); setShowRecordPaymentModal(true); }}
-            className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
+            className="bg-blue-500 flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
             Record Payment
           </button>
+          <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
+            <button
+              type="button"
+              onClick={() => setProfileOpen((o) => !o)}
+              className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition"
+              aria-expanded={profileOpen}
+              aria-haspopup="true"
+            >
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                {USER_PROFILE.initials}
+              </div>
+            </button>
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
+                <div className="px-4 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                      {USER_PROFILE.initials}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-black truncate">{USER_PROFILE.name}</p>
+                      <p className="text-xs font-medium text-black/70">{USER_PROFILE.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{USER_PROFILE.email}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="py-1">
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-black hover:bg-gray-50 transition text-left"
+                  >
+                    <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                    My Profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => (window.location.href = "/")}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left"
+                  >
+                    <LogOut className="w-4 h-4" strokeWidth={2} />
+                    Log out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -239,53 +302,55 @@ export default function PaymentsPage() {
       />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
-        {/* Three summary cards - soft gradient design with icons */}
+        {/* Stat cards – same style as HR DashboardOverview */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="group rounded-2xl bg-gradient-to-br from-teal-50 to-white border border-teal-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-teal-600/90 uppercase tracking-wider mb-1.5">Total Received</p>
-                <p className="text-2xl font-bold text-teal-700 tabular-nums tracking-tight">₹22,50,850</p>
-                <p className="text-xs text-gray-500 mt-1.5">All time</p>
+                <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Total Received</p>
+                <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">₹22,50,850</p>
+                <p className="text-xs font-medium text-teal-700/80 mt-1.5">All time</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-teal-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Wallet className="w-5 h-5 text-teal-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-teal-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Wallet className="w-6 h-6 text-teal-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-brand-soft to-white border border-brand-light/80 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-brand-dark/80 uppercase tracking-wider mb-1.5">Transactions</p>
-                <p className="text-2xl font-bold text-brand-dark tabular-nums tracking-tight">7</p>
-                <p className="text-xs text-gray-500 mt-1.5">Total count</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Transactions</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">7</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">Total count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Hash className="w-5 h-5 text-brand" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Hash className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-violet-50 to-white border border-violet-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-violet-100 border-2 border-violet-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-violet-600/90 uppercase tracking-wider mb-1.5">This Month</p>
-                <p className="text-2xl font-bold text-violet-700 tabular-nums tracking-tight">₹0</p>
-                <p className="text-xs text-gray-500 mt-1.5">Current month</p>
+                <p className="text-[11px] font-bold text-violet-800 uppercase tracking-wider mb-1.5">This Month</p>
+                <p className="text-2xl font-bold text-violet-900 tabular-nums tracking-tight">₹0</p>
+                <p className="text-xs font-medium text-violet-700/80 mt-1.5">Current month</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-violet-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Calendar className="w-5 h-5 text-violet-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-violet-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Calendar className="w-6 h-6 text-violet-700" strokeWidth={2} />
               </span>
             </div>
           </div>
         </div>
 
-        {/* Payment Ledger */}
+        {/* Payment Ledger – same card header style as HR DashboardOverview */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
-            <h2 className="text-base font-semibold text-brand-dark flex items-center gap-2 shrink-0">
-              <Receipt className="w-5 h-5 text-brand" strokeWidth={2} />
-              Payment Ledger
-            </h2>
+          <div className="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-brand-soft/80 to-transparent flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-xl bg-brand-soft flex items-center justify-center shrink-0">
+                <Receipt className="w-5 h-5 text-brand" strokeWidth={2} />
+              </span>
+              <h2 className="text-sm font-semibold text-black">Payment Ledger</h2>
+            </div>
             <div className="flex items-center gap-2 shrink-0">
               <input
                 type="search"
@@ -320,15 +385,15 @@ export default function PaymentsPage() {
               </colgroup>
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="py-3 px-3 font-semibold text-gray-600 text-right w-12">S.no</th>
-                  <th className="py-3 px-3 font-semibold text-gray-600 text-left">Client</th>
-                  <th className="py-3 px-3 font-semibold text-gray-600 text-right">Amount</th>
-                  <th className="py-3 px-3 font-semibold text-gray-600 text-center">Date</th>
-                  <th className="py-3 px-3 font-semibold text-gray-600 text-left">Method</th>
-                  <th className="py-3 px-3 font-semibold text-gray-600 text-left">Reference #</th>
-                  <th className="py-3 px-3 font-semibold text-gray-600 text-left">Invoice Ref</th>
-                  <th className="py-3 px-3 font-semibold text-gray-600 text-left">Notes</th>
-                  <th className="py-3 px-3 font-semibold text-gray-600 text-center w-16">Actions</th>
+                  <th className="py-3 px-3 font-semibold text-blacktext-right w-12">S.No</th>
+                  <th className="py-3 px-3 font-semibold text-blacktext-left">Client</th>
+                  <th className="py-3 px-3 font-semibold text-blacktext-right">Amount</th>
+                  <th className="py-3 px-3 font-semibold text-blacktext-center">Date</th>
+                  <th className="py-3 px-3 font-semibold text-blacktext-left">Method</th>
+                  <th className="py-3 px-3 font-semibold text-blacktext-left">Reference #</th>
+                  <th className="py-3 px-3 font-semibold text-blacktext-left">Invoice Ref</th>
+                  <th className="py-3 px-3 font-semibold text-blacktext-left">Notes</th>
+                  <th className="py-3 px-3 font-semibold text-blacktext-center w-16">Actions</th>
                 </tr>
               </thead>
               <tbody>

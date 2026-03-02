@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Bell, FileText, Plus, Download, Pencil, X, Save, Wallet, Clock, AlertCircle, Hash } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Bell, FileText, Plus, Download, Pencil, X, Save, Wallet, Clock, AlertCircle, Hash, User, LogOut } from "lucide-react";
 
 const inputClass = "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
 const labelClass = "block text-xs font-medium text-body uppercase tracking-wider mb-1.5";
@@ -94,7 +94,7 @@ function NewInvoiceModal({ open, onClose, onSave, invoice: editingInvoice }) {
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
       <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">{editingInvoice ? "Edit Invoice" : "New Invoice"}</h2>
+          <h2 className="text-lg font-bold text-blue-500">{editingInvoice ? "Edit Invoice" : "New Invoice"}</h2>
           <button type="button" onClick={onClose} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close">
             <X className="w-5 h-5" strokeWidth={2} />
           </button>
@@ -187,9 +187,9 @@ function NewInvoiceModal({ open, onClose, onSave, invoice: editingInvoice }) {
             <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition">
               Cancel
             </button>
-            <button type="submit" className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition">
+            <button type="submit" className="bg-blue-500 flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition">
               <Save className="w-4 h-4" strokeWidth={2} />
-              Save Invoice
+              Save 
             </button>
           </div>
         </form>
@@ -219,6 +219,13 @@ const INITIAL_INVOICES = [
   { id: 6, invoiceNo: "IV-2025-006", client: "EduLearn Pvt Ltd", type: "Training", baseAmount: "₹3,00,000", gst: "₹54,000", total: "₹3,54,000", status: "Paid", method: "Bank Transfer", invoiceDate: "2025-02-05", dueDate: "2025-02-20", paidDate: "2025-02-18", description: "Corporate training" },
 ];
 
+const USER_PROFILE = {
+  name: "Suresh Agarwal",
+  role: "Finance Manager",
+  email: "suresh.agarwal@company.com",
+  initials: "SA",
+};
+
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState(INITIAL_INVOICES);
   const [search, setSearch] = useState("");
@@ -226,6 +233,16 @@ export default function InvoicesPage() {
   const [typeFilter, setTypeFilter] = useState("All Types");
   const [showNewInvoiceModal, setShowNewInvoiceModal] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+    };
+    if (profileOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen]);
 
   const filtered = invoices.filter((row) => {
     const matchSearch =
@@ -246,7 +263,7 @@ export default function InvoicesPage() {
       return s;
     };
     const headers = [
-      "S.no",
+      "S.No",
       "Invoice",
       "Client",
       "Type",
@@ -296,8 +313,8 @@ export default function InvoicesPage() {
             <FileText className="w-5 h-5" strokeWidth={2} />
           </span>
           <div className="flex flex-col gap-0.5 min-w-0">
-            <h1 className="text-lg font-semibold text-brand-dark leading-tight">Invoices</h1>
-            <p className="text-sm text-body leading-snug">Create and manage invoices, billing, and collections.</p>
+            <h1 className="text-lg font-bold text-black leading-tight">Invoices</h1>
+            <p className="text-[13px] text-black/70">Create and manage invoices, billing, and collections.</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -316,11 +333,57 @@ export default function InvoicesPage() {
           <button
             type="button"
             onClick={() => { setEditingInvoice(null); setShowNewInvoiceModal(true); }}
-            className="btn-primary flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
+            className="bg-blue-500 flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium text-sm shadow-sm hover:opacity-95 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
             New Invoice
           </button>
+          <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
+            <button
+              type="button"
+              onClick={() => setProfileOpen((o) => !o)}
+              className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition"
+              aria-expanded={profileOpen}
+              aria-haspopup="true"
+            >
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                {USER_PROFILE.initials}
+              </div>
+            </button>
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
+                <div className="px-4 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                      {USER_PROFILE.initials}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-black truncate">{USER_PROFILE.name}</p>
+                      <p className="text-xs font-medium text-black/70">{USER_PROFILE.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{USER_PROFILE.email}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="py-1">
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-black hover:bg-gray-50 transition text-left"
+                  >
+                    <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                    My Profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => (window.location.href = "/")}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left"
+                  >
+                    <LogOut className="w-4 h-4" strokeWidth={2} />
+                    Log out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -338,77 +401,77 @@ export default function InvoicesPage() {
       />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
-        {/* Six metric cards - soft gradient design with icons */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-          <div className="group rounded-2xl bg-gradient-to-br from-teal-50 to-white border border-teal-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+        {/* Six stat cards – same style as HR DashboardOverview */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-teal-600/90 uppercase tracking-wider mb-1.5">Total Collected</p>
-                <p className="text-2xl font-bold text-teal-700 tabular-nums tracking-tight">₹22,24,300</p>
-                <p className="text-xs text-gray-500 mt-1.5">Collected</p>
+                <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Total Collected</p>
+                <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">₹22,24,300</p>
+                <p className="text-xs font-medium text-teal-700/80 mt-1.5">Collected</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-teal-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Wallet className="w-5 h-5 text-teal-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-teal-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Wallet className="w-6 h-6 text-teal-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-amber-50 to-white border border-amber-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-amber-100 border-2 border-amber-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-amber-600/90 uppercase tracking-wider mb-1.5">Pending</p>
-                <p className="text-2xl font-bold text-amber-700 tabular-nums tracking-tight">₹3,06,800</p>
-                <p className="text-xs text-gray-500 mt-1.5">Awaiting payment</p>
+                <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-1.5">Pending</p>
+                <p className="text-2xl font-bold text-amber-900 tabular-nums tracking-tight">₹3,06,800</p>
+                <p className="text-xs font-medium text-amber-700/80 mt-1.5">Awaiting payment</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-amber-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Clock className="w-5 h-5 text-amber-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-amber-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Clock className="w-6 h-6 text-amber-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-red-50 to-white border border-red-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-red-100 border-2 border-red-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-red-600/90 uppercase tracking-wider mb-1.5">Overdue</p>
-                <p className="text-2xl font-bold text-red-700 tabular-nums tracking-tight">₹4,72,000</p>
-                <p className="text-xs text-gray-500 mt-1.5">Past due</p>
+                <p className="text-[11px] font-bold text-red-800 uppercase tracking-wider mb-1.5">Overdue</p>
+                <p className="text-2xl font-bold text-red-900 tabular-nums tracking-tight">₹4,72,000</p>
+                <p className="text-xs font-medium text-red-700/80 mt-1.5">Past due</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-red-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <AlertCircle className="w-5 h-5 text-red-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-red-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <AlertCircle className="w-6 h-6 text-red-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-brand-soft to-white border border-brand-light/80 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-brand-dark/80 uppercase tracking-wider mb-1.5">Total Invoiced</p>
-                <p className="text-2xl font-bold text-brand-dark tabular-nums tracking-tight">₹30,03,100</p>
-                <p className="text-xs text-gray-500 mt-1.5">All time</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Total Invoiced</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">₹30,03,100</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">All time</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center group-hover:scale-105 transition-transform">
-                <FileText className="w-5 h-5 text-brand" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileText className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-teal-50 to-white border border-teal-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-teal-600/90 uppercase tracking-wider mb-1.5">Company Invoices</p>
-                <p className="text-2xl font-bold text-teal-700 tabular-nums tracking-tight">5</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Company Invoices</p>
+                <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">5</p>
+                <p className="text-xs font-medium text-teal-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-teal-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Hash className="w-5 h-5 text-teal-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-teal-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Hash className="w-6 h-6 text-teal-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-violet-50 to-white border border-violet-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-violet-100 border-2 border-violet-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-violet-600/90 uppercase tracking-wider mb-1.5">Training Fees</p>
-                <p className="text-2xl font-bold text-violet-700 tabular-nums tracking-tight">5</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-violet-800 uppercase tracking-wider mb-1.5">Training Fees</p>
+                <p className="text-2xl font-bold text-violet-900 tabular-nums tracking-tight">5</p>
+                <p className="text-xs font-medium text-violet-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-violet-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <FileText className="w-5 h-5 text-violet-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-violet-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileText className="w-6 h-6 text-violet-700" strokeWidth={2} />
               </span>
             </div>
           </div>
@@ -420,13 +483,15 @@ export default function InvoicesPage() {
           <span className="text-2xl font-bold text-success">74%</span>
         </div>
 
-        {/* Invoice Ledger */}
+        {/* Invoice Ledger – same card header style as HR DashboardOverview */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-base font-semibold text-brand-dark flex items-center gap-2">
-              <FileText className="w-5 h-5 text-brand" strokeWidth={2} />
-              Invoice Ledger
-            </h2>
+          <div className="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-brand-soft/80 to-transparent flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-xl bg-brand-soft flex items-center justify-center shrink-0">
+                <FileText className="w-5 h-5 text-brand" strokeWidth={2} />
+              </span>
+              <h2 className="text-sm font-semibold text-black">Invoice Ledger</h2>
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="search"
@@ -486,20 +551,20 @@ export default function InvoicesPage() {
               </colgroup>
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">S.no</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Invoice</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Client</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Type</th>
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Base Amount</th>
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">GST (18%)</th>
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">Total</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Status</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Method</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Invoice Date</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Due Date</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Paid Date</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Description</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
+                  <th className="text-right py-3 px-3 font-semibold text-black">S.No</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Invoice</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Client</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Type</th>
+                  <th className="text-right py-3 px-3 font-semibold text-black">Base Amount</th>
+                  <th className="text-right py-3 px-3 font-semibold text-black">GST (18%)</th>
+                  <th className="text-right py-3 px-3 font-semibold text-black">Total</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Status</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Method</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Invoice Date</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Due Date</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Paid Date</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Description</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Actions</th>
                 </tr>
               </thead>
               <tbody>
