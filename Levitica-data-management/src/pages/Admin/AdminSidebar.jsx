@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   Target,
@@ -18,6 +18,14 @@ import {
 
 export default function AdminSidebar() {
   const navigate = useNavigate();
+  const [roleLabel, setRoleLabel] = useState("Enterprise");
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("levitica_user_role");
+      if (stored) setRoleLabel(stored);
+    } catch (_) {}
+  }, []);
 
   const handleSignOut = () => navigate("/");
 
@@ -41,7 +49,7 @@ export default function AdminSidebar() {
             />
             <div className="flex flex-col gap-0 min-w-0 ml-2.5">
               <span className="text-sm font-bold text-gray-900 truncate">Levitica</span>
-              <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Enterprise</span>
+              <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">{roleLabel}</span>
             </div>
           </NavLink>
         </div>

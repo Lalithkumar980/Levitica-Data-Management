@@ -214,7 +214,7 @@ export default function AdminContactsPage() {
           <button
             type="button"
             onClick={() => { setEditingContact(null); setContactForm(initialContactForm); setAddModalOpen(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
             Add Contact
@@ -599,14 +599,14 @@ export default function AdminContactsPage() {
               <button
                 type="button"
                 onClick={closeAddModal}
-                className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition"
+                className="px-4 py-2.5 rounded-xl text-body font-medium hover:bg-gray-100 transition"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSaveContact}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-brand-blue transition"
               >
                 <Save className="w-4 h-4" strokeWidth={2} />
                 {editingContact ? "Save changes" : "Save"}

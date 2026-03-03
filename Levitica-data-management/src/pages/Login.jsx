@@ -38,10 +38,16 @@ export default function Login() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    const roleEntry = ROLES.find((r) => r.value === formData.role);
+    const roleLabel = roleEntry ? roleEntry.label : "Enterprise";
+    try {
+      localStorage.setItem("levitica_user_role", roleLabel);
+    } catch (_) {}
+
     if (formData.role === "admin") return navigate("/admin");
     if (formData.role === "hr_management") return navigate("/dashboard");
     if (formData.role === "finance_management") return navigate("/finance");
-    if (formData.role === "sales_Manager") return navigate("/sales");
+    if (formData.role === "sales_Manager" || formData.role === "sales_representative") return navigate("/sales");
 
     console.log("Sign in", formData);
   };

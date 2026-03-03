@@ -299,7 +299,7 @@ export default function AdminActivityLogPage() {
           <button
             type="button"
             onClick={() => { setEditingActivity(null); setActivityForm(initialActivityForm); setAddModalOpen(true); }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
             Log Activity
@@ -553,7 +553,7 @@ export default function AdminActivityLogPage() {
                 />
                 <button
                   type="button"
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-brand-blue transition"
                 >
                   <Plus className="w-4 h-4" strokeWidth={2} />
                   Add Task
@@ -831,14 +831,14 @@ export default function AdminActivityLogPage() {
               <button
                 type="button"
                 onClick={closeAddModal}
-                className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition"
+                className="px-4 py-2.5 rounded-xl text-body font-medium hover:bg-gray-100 transition"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSaveActivity}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-brand-blue transition"
               >
                 <Save className="w-4 h-4" strokeWidth={2} />
                 {editingActivity ? "Save changes" : "Save Activity"}
@@ -905,8 +905,8 @@ export default function AdminActivityLogPage() {
               </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3">
-              <button type="button" onClick={() => { setEditingTask(null); setTaskForm(initialTaskForm); }} className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition">Cancel</button>
-              <button type="button" onClick={handleSaveTaskEdit} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-dark text-white font-medium text-sm shadow-sm transition">
+              <button type="button" onClick={() => { setEditingTask(null); setTaskForm(initialTaskForm); }} className="px-4 py-2.5 rounded-xl text-body font-medium hover:bg-gray-100 transition">Cancel</button>
+              <button type="button" onClick={handleSaveTaskEdit} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-brand-blue transition">
                 <Save className="w-4 h-4" strokeWidth={2} />
                 Save changes
               </button>
