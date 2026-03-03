@@ -398,14 +398,14 @@ export default function EmailLogPage() {
               </colgroup>
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-right py-3 px-3 font-semibold text-gray-600">#</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Date</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Subject</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Rep</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Deal</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Notes</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
+                  <th className="text-right py-3 px-3 font-semibold text-black">S.No</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Date</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Subject</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Company</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Rep</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Deal</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Notes</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Actions</th>
                 </tr>
               </thead>
               <tbody>

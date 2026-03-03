@@ -712,7 +712,7 @@ export default function DocumentsPage() {
             <table className="w-max min-w-[1000px] text-sm table-fixed">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-right py-3 px-3 font-semibold text-black">#</th>
+                  <th className="text-right py-3 px-3 font-semibold text-black">S.No</th>
                   <th className="text-left py-3 px-3 font-semibold text-black">File Name</th>
                   <th className="text-left py-3 px-3 font-semibold text-black">Type</th>
                   <th className="text-left py-3 px-3 font-semibold text-black">Company</th>
