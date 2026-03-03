@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { toast } from "react-toastify";
 import {
   Bell,
@@ -14,7 +14,11 @@ import {
   PhoneOff,
   Mic,
   Percent,
+  User,
+  LogOut,
 } from "lucide-react";
+
+const ADMIN_USER = { name: "Arjun Kapoor", role: "Admin", email: "admin@levitica.com", initials: "AK" };
 
 const ACTIVITY_TYPES = ["Call", "Email", "Meeting"];
 const CALL_OUTCOMES = ["—", "Voicemail", "Connected - Interested", "Callback Requested", "No Answer", "Other"];
@@ -65,6 +69,16 @@ export default function AdminCallTrackingPage() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [logForm, setLogForm] = useState(initialLogForm);
   const [editingCall, setEditingCall] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+    };
+    if (profileOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen]);
 
   const filtered = calls.filter((row) => {
     const matchSearch =
@@ -158,19 +172,19 @@ export default function AdminCallTrackingPage() {
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 min-w-0">
           <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0" aria-hidden>
             <Phone className="w-5 h-5" strokeWidth={2} />
           </span>
           <div className="flex flex-col gap-0.5 min-w-0">
-            <h1 className="text-lg font-semibold text-brand-dark leading-tight">Call Tracking</h1>
-            <p className="text-sm text-body leading-snug">Log calls, outcomes, duration, and recordings for your deals.</p>
+            <h1 className="text-lg font-bold text-black leading-tight">Call Tracking</h1>
+            <p className="text-[13px] text-black/70">Log calls, outcomes, duration, and recordings for your deals.</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <input
             type="search"
-            placeholder="Search CRM..."
+            placeholder="Search anything..."
             className="w-64 px-4 py-2 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
           />
           <button
@@ -188,81 +202,110 @@ export default function AdminCallTrackingPage() {
             <Plus className="w-4 h-4" strokeWidth={2} />
             Add Log
           </button>
+          <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
+            <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{ADMIN_USER.initials}</div>
+            </button>
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
+                <div className="px-4 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{ADMIN_USER.initials}</div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-black truncate">{ADMIN_USER.name}</p>
+                      <p className="text-xs font-medium text-black/70">{ADMIN_USER.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{ADMIN_USER.email}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="py-1">
+                  <button type="button" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-black hover:bg-gray-50 transition text-left">
+                    <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                    My Profile
+                  </button>
+                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
+                    <LogOut className="w-4 h-4" strokeWidth={2} />
+                    Log out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
-        {/* Six summary cards - same style as Finance */}
+        {/* Six summary cards - same style as HR */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <div className="group rounded-2xl bg-gradient-to-br from-teal-50 to-white border border-teal-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-teal-600/90 uppercase tracking-wider mb-1.5">Total Calls</p>
-                <p className="text-2xl font-bold text-teal-700 tabular-nums tracking-tight">{calls.length}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Total Calls</p>
+                <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">{calls.length}</p>
+                <p className="text-xs font-medium text-teal-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-teal-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Phone className="w-5 h-5 text-teal-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-teal-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Phone className="w-6 h-6 text-teal-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-emerald-50 to-white border border-emerald-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-emerald-100 border-2 border-emerald-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-emerald-600/90 uppercase tracking-wider mb-1.5">Connected</p>
-                <p className="text-2xl font-bold text-emerald-700 tabular-nums tracking-tight">{connectedCount}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider mb-1.5">Connected</p>
+                <p className="text-2xl font-bold text-emerald-900 tabular-nums tracking-tight">{connectedCount}</p>
+                <p className="text-xs font-medium text-emerald-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-emerald-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <CheckCircle className="w-5 h-5 text-emerald-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-emerald-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <CheckCircle className="w-6 h-6 text-emerald-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-amber-50 to-white border border-amber-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-amber-100 border-2 border-amber-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-amber-600/90 uppercase tracking-wider mb-1.5">Voicemail</p>
-                <p className="text-2xl font-bold text-amber-700 tabular-nums tracking-tight">{voicemailCount}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-1.5">Voicemail</p>
+                <p className="text-2xl font-bold text-amber-900 tabular-nums tracking-tight">{voicemailCount}</p>
+                <p className="text-xs font-medium text-amber-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-amber-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Voicemail className="w-5 h-5 text-amber-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-amber-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Voicemail className="w-6 h-6 text-amber-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-red-50 to-white border border-red-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-red-100 border-2 border-red-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-red-600/90 uppercase tracking-wider mb-1.5">No Answer</p>
-                <p className="text-2xl font-bold text-red-700 tabular-nums tracking-tight">{noAnswerCount}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-red-800 uppercase tracking-wider mb-1.5">No Answer</p>
+                <p className="text-2xl font-bold text-red-900 tabular-nums tracking-tight">{noAnswerCount}</p>
+                <p className="text-xs font-medium text-red-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-red-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <PhoneOff className="w-5 h-5 text-red-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-red-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <PhoneOff className="w-6 h-6 text-red-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-violet-50 to-white border border-violet-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-violet-100 border-2 border-violet-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-violet-600/90 uppercase tracking-wider mb-1.5">Recordings</p>
-                <p className="text-2xl font-bold text-violet-700 tabular-nums tracking-tight">{withRecording}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-violet-800 uppercase tracking-wider mb-1.5">Recordings</p>
+                <p className="text-2xl font-bold text-violet-900 tabular-nums tracking-tight">{withRecording}</p>
+                <p className="text-xs font-medium text-violet-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-violet-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Mic className="w-5 h-5 text-violet-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-violet-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Mic className="w-6 h-6 text-violet-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-brand-soft to-white border border-brand-light/80 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-brand-dark/80 uppercase tracking-wider mb-1.5">Connect Rate</p>
-                <p className="text-2xl font-bold text-brand-dark tabular-nums tracking-tight">{connectRate}%</p>
-                <p className="text-xs text-gray-500 mt-1.5">Rate</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Connect Rate</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">{connectRate}%</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">Rate</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Percent className="w-5 h-5 text-brand" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Percent className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
@@ -270,8 +313,11 @@ export default function AdminCallTrackingPage() {
 
         {/* Call Log table */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-base font-semibold text-brand-dark mb-4">Call Log</h2>
+          <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-brand-dark flex items-center gap-2">
+              <Phone className="w-5 h-5 text-brand" strokeWidth={2} />
+              Call Log
+            </h2>
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="search"
@@ -298,17 +344,17 @@ export default function AdminCallTrackingPage() {
             <table className="w-max min-w-[1000px] text-sm table-fixed">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">#</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Date</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Subject</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Outcome</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Duration</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Rep</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Deal</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Notes</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Recording</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">S.No</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Date</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Subject</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Company</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Outcome</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Duration</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Rep</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Deal</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Notes</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Recording</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Actions</th>
                 </tr>
               </thead>
               <tbody>

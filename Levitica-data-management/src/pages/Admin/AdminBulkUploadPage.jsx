@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Bell,
   ClipboardList,
@@ -6,7 +6,11 @@ import {
   Clock,
   FileText,
   Upload,
+  User,
+  LogOut,
 } from "lucide-react";
+
+const ADMIN_USER = { name: "Arjun Kapoor", role: "Admin", email: "admin@levitica.com", initials: "AK" };
 
 const CSV_COLUMNS = [
   { header: "first_name", field: "First Name", required: "Required", example: "Ratan" },
@@ -30,6 +34,16 @@ const INITIAL_IMPORT_HISTORY = [
 export default function AdminBulkUploadPage() {
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+    };
+    if (profileOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen]);
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -56,19 +70,19 @@ export default function AdminBulkUploadPage() {
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 min-w-0">
           <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0" aria-hidden>
             <Upload className="w-5 h-5" strokeWidth={2} />
           </span>
           <div className="flex flex-col gap-0.5 min-w-0">
-            <h1 className="text-lg font-semibold text-brand-dark leading-tight">Bulk Upload</h1>
-            <p className="text-sm text-body leading-snug">Import leads or contacts from CSV or Excel in one go.</p>
+            <h1 className="text-lg font-bold text-black leading-tight">Bulk Upload</h1>
+            <p className="text-[13px] text-black/70">Import leads or contacts from CSV or Excel in one go.</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <input
             type="search"
-            placeholder="Search CRM..."
+            placeholder="Search anything..."
             className="w-64 px-4 py-2 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
           />
           <button
@@ -78,6 +92,35 @@ export default function AdminBulkUploadPage() {
           >
             <Bell className="w-5 h-5" strokeWidth={2} />
           </button>
+          <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
+            <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{ADMIN_USER.initials}</div>
+            </button>
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
+                <div className="px-4 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{ADMIN_USER.initials}</div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-black truncate">{ADMIN_USER.name}</p>
+                      <p className="text-xs font-medium text-black/70">{ADMIN_USER.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{ADMIN_USER.email}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="py-1">
+                  <button type="button" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-black hover:bg-gray-50 transition text-left">
+                    <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                    My Profile
+                  </button>
+                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
+                    <LogOut className="w-4 h-4" strokeWidth={2} />
+                    Log out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 

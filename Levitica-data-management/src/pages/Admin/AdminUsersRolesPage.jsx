@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { toast } from "react-toastify";
-import { Bell, Plus, Check, X, Users, User, Save, Eye, EyeOff, Pencil } from "lucide-react";
+import { Bell, Plus, Check, X, Users, User, Save, Eye, EyeOff, Pencil, LogOut } from "lucide-react";
+
+const ADMIN_USER = { name: "Arjun Kapoor", role: "Admin", email: "admin@levitica.com", initials: "AK" };
 
 const ROLE_CLASS = {
   Admin: "bg-blue-100 text-blue-700",
@@ -56,6 +58,16 @@ export default function AdminUsersRolesPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [detailsEditMode, setDetailsEditMode] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", email: "", role: "Sales Rep", department: "Sales", password: "" });
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+    };
+    if (profileOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen]);
 
   const handleUserFormChange = (field, value) => {
     setUserForm((prev) => ({ ...prev, [field]: value }));
@@ -153,19 +165,19 @@ export default function AdminUsersRolesPage() {
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 min-w-0">
           <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0" aria-hidden>
             <Users className="w-5 h-5" strokeWidth={2} />
           </span>
           <div className="flex flex-col gap-0.5 min-w-0">
-            <h1 className="text-lg font-semibold text-brand-dark leading-tight">Users & Roles</h1>
-            <p className="text-sm text-body leading-snug">Manage users, roles, and permissions across the platform.</p>
+            <h1 className="text-lg font-bold text-black leading-tight">Users & Roles</h1>
+            <p className="text-[13px] text-black/70">Manage users, roles, and permissions across the platform.</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <input
             type="search"
-            placeholder="Search CRM..."
+            placeholder="Search anything..."
             className="w-64 px-4 py-2 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
           />
           <button
@@ -183,57 +195,86 @@ export default function AdminUsersRolesPage() {
             <Plus className="w-4 h-4" strokeWidth={2} />
             Add User
           </button>
+          <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
+            <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{ADMIN_USER.initials}</div>
+            </button>
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
+                <div className="px-4 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{ADMIN_USER.initials}</div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-black truncate">{ADMIN_USER.name}</p>
+                      <p className="text-xs font-medium text-black/70">{ADMIN_USER.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{ADMIN_USER.email}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="py-1">
+                  <button type="button" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-black hover:bg-gray-50 transition text-left">
+                    <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                    My Profile
+                  </button>
+                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
+                    <LogOut className="w-4 h-4" strokeWidth={2} />
+                    Log out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
-        {/* KPI cards - same style as Finance */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="group rounded-2xl bg-gradient-to-br from-brand-soft to-white border border-brand-light/80 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+        {/* KPI cards - same style as HR */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-brand-dark/80 uppercase tracking-wider mb-1.5">Total Users</p>
-                <p className="text-2xl font-bold text-brand-dark tabular-nums tracking-tight">{users.length}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Total Users</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">{users.length}</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Users className="w-5 h-5 text-brand" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Users className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-amber-50 to-white border border-amber-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-amber-100 border-2 border-amber-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-amber-600/90 uppercase tracking-wider mb-1.5">Sales Reps</p>
-                <p className="text-2xl font-bold text-amber-700 tabular-nums tracking-tight">{users.filter((u) => u.role === "Sales Rep").length}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-1.5">Sales Reps</p>
+                <p className="text-2xl font-bold text-amber-900 tabular-nums tracking-tight">{users.filter((u) => u.role === "Sales Rep").length}</p>
+                <p className="text-xs font-medium text-amber-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-amber-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <User className="w-5 h-5 text-amber-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-amber-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <User className="w-6 h-6 text-amber-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-emerald-50 to-white border border-emerald-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-emerald-100 border-2 border-emerald-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-emerald-600/90 uppercase tracking-wider mb-1.5">Managers</p>
-                <p className="text-2xl font-bold text-emerald-700 tabular-nums tracking-tight">{users.filter((u) => u.role === "Sales Manager").length}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider mb-1.5">Managers</p>
+                <p className="text-2xl font-bold text-emerald-900 tabular-nums tracking-tight">{users.filter((u) => u.role === "Sales Manager").length}</p>
+                <p className="text-xs font-medium text-emerald-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-emerald-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <User className="w-5 h-5 text-emerald-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-emerald-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <User className="w-6 h-6 text-emerald-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-blue-50 to-white border border-blue-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-blue-600/90 uppercase tracking-wider mb-1.5">Admins</p>
-                <p className="text-2xl font-bold text-blue-700 tabular-nums tracking-tight">{users.filter((u) => u.role === "Admin").length}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Admins</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">{users.filter((u) => u.role === "Admin").length}</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-blue-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <User className="w-5 h-5 text-blue-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <User className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
@@ -242,19 +283,22 @@ export default function AdminUsersRolesPage() {
         {/* Users & Access Control */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-brand-dark">Users & Access Control</h2>
+            <h2 className="text-base font-semibold text-brand-dark flex items-center gap-2">
+              <Users className="w-5 h-5 text-brand" strokeWidth={2} />
+              Users & Access Control
+            </h2>
           </div>
           <div className="overflow-x-auto">
             <table className="w-max min-w-[900px] text-sm table-fixed">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600 w-10">#</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">User</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Email</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Role</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Dept</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Modules</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Permissions</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black w-10">S.No</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">User</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Email</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Role</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Dept</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Modules</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Permissions</th>
                 </tr>
               </thead>
               <tbody>
@@ -262,9 +306,9 @@ export default function AdminUsersRolesPage() {
                   <tr
                     key={row.id ?? idx}
                     onClick={() => { setSelectedUser(row); setShowPassword(false); setDetailsEditMode(false); }}
-                    className="border-b border-gray-100 hover:bg-gray-50/50 transition cursor-pointer"
+                    className="border-b border-gray-100 hover:bg-gray-50/50 transition cursor-pointer text-black"
                   >
-                    <td className="py-3 px-3 text-body tabular-nums">{idx + 1}</td>
+                    <td className="py-3 px-3 text-black tabular-nums">{idx + 1}</td>
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2">
                         <span className="w-8 h-8 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-xs shrink-0">
@@ -273,17 +317,17 @@ export default function AdminUsersRolesPage() {
                         <span className="font-medium text-brand-dark">{row.name}</span>
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-body truncate" title={row.email}>{row.email}</td>
+                    <td className="py-3 px-3 text-black truncate" title={row.email}>{row.email}</td>
                     <td className="py-3 px-3">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${row.roleClass}`}>
                         {row.role}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-body truncate" title={row.dept}>{row.dept}</td>
+                    <td className="py-3 px-3 text-black truncate" title={row.dept}>{row.dept}</td>
                     <td className="py-3 px-3">
                       <div className="flex flex-wrap gap-1">
                         {row.modules.map((m, i) => (
-                          <span key={i} className="text-body text-xs flex items-center gap-0.5">
+                          <span key={i} className="text-black text-xs flex items-center gap-0.5">
                             <Check className="w-3.5 h-3.5 text-success shrink-0" strokeWidth={2.5} />
                             {m}
                           </span>

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { toast } from "react-toastify";
 import {
   Bell,
@@ -14,7 +14,11 @@ import {
   Save,
   Paperclip,
   Calendar,
+  User,
+  LogOut,
 } from "lucide-react";
+
+const ADMIN_USER = { name: "Arjun Kapoor", role: "Admin", email: "admin@levitica.com", initials: "AK" };
 
 const LINKED_DEALS = ["— None —", "TechNova Enterprise License", "GreenPath Consulting Module", "Horizon Retail Integration", "MediCore Healthcare Module", "EduLeap Education Suite", "FinPlex SaaS Starter"];
 const LINKED_CONTACTS = ["— None —", "Suresh Rajan", "Meena Joshi", "Deepak Verma", "Priya Nair", "Arun Krishnan"];
@@ -64,6 +68,16 @@ export default function AdminDocumentsPage() {
   const fileInputRef = useRef(null);
   const [editingDocument, setEditingDocument] = useState(null);
   const [viewingDocument, setViewingDocument] = useState(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+    };
+    if (profileOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen]);
 
   const filtered = documents.filter((row) => {
     const matchSearch =
@@ -173,19 +187,19 @@ export default function AdminDocumentsPage() {
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 min-w-0">
           <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0" aria-hidden>
             <FileStack className="w-5 h-5" strokeWidth={2} />
           </span>
           <div className="flex flex-col gap-0.5 min-w-0">
-            <h1 className="text-lg font-semibold text-brand-dark leading-tight">Documents</h1>
-            <p className="text-sm text-body leading-snug">Store and manage proposals, contracts, and call recordings.</p>
+            <h1 className="text-lg font-bold text-black leading-tight">Documents</h1>
+            <p className="text-[13px] text-black/70">Store and manage proposals, contracts, and call recordings.</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <input
             type="search"
-            placeholder="Search CRM..."
+            placeholder="Search anything..."
             className="w-64 px-4 py-2 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
           />
           <button
@@ -203,57 +217,86 @@ export default function AdminDocumentsPage() {
             <Plus className="w-4 h-4" strokeWidth={2} />
             Upload File
           </button>
+          <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
+            <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{ADMIN_USER.initials}</div>
+            </button>
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
+                <div className="px-4 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{ADMIN_USER.initials}</div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-black truncate">{ADMIN_USER.name}</p>
+                      <p className="text-xs font-medium text-black/70">{ADMIN_USER.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{ADMIN_USER.email}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="py-1">
+                  <button type="button" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-black hover:bg-gray-50 transition text-left">
+                    <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                    My Profile
+                  </button>
+                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
+                    <LogOut className="w-4 h-4" strokeWidth={2} />
+                    Log out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
-        {/* Four summary cards - same style as Finance */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="group rounded-2xl bg-gradient-to-br from-brand-soft to-white border border-brand-light/80 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+        {/* Four summary cards - same style as HR */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-brand-dark/80 uppercase tracking-wider mb-1.5">Total Files</p>
-                <p className="text-2xl font-bold text-brand-dark tabular-nums tracking-tight">{totalFiles}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Files</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Total Files</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">{totalFiles}</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">Files</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center group-hover:scale-105 transition-transform">
-                <FileStack className="w-5 h-5 text-brand" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileStack className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-violet-50 to-white border border-violet-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-violet-100 border-2 border-violet-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-violet-600/90 uppercase tracking-wider mb-1.5">Call Recordings</p>
-                <p className="text-2xl font-bold text-violet-700 tabular-nums tracking-tight">{callRecordings}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-violet-800 uppercase tracking-wider mb-1.5">Call Recordings</p>
+                <p className="text-2xl font-bold text-violet-900 tabular-nums tracking-tight">{callRecordings}</p>
+                <p className="text-xs font-medium text-violet-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-violet-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Mic className="w-5 h-5 text-violet-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-violet-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Mic className="w-6 h-6 text-violet-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-blue-50 to-white border border-blue-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-blue-600/90 uppercase tracking-wider mb-1.5">Proposals</p>
-                <p className="text-2xl font-bold text-blue-700 tabular-nums tracking-tight">{proposals}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Proposals</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">{proposals}</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-blue-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <FileText className="w-5 h-5 text-blue-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileText className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-emerald-50 to-white border border-emerald-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-emerald-100 border-2 border-emerald-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-emerald-600/90 uppercase tracking-wider mb-1.5">Contracts</p>
-                <p className="text-2xl font-bold text-emerald-700 tabular-nums tracking-tight">{contracts}</p>
-                <p className="text-xs text-gray-500 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider mb-1.5">Contracts</p>
+                <p className="text-2xl font-bold text-emerald-900 tabular-nums tracking-tight">{contracts}</p>
+                <p className="text-xs font-medium text-emerald-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-emerald-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <FileCheck className="w-5 h-5 text-emerald-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-emerald-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <FileCheck className="w-6 h-6 text-emerald-700" strokeWidth={2} />
               </span>
             </div>
           </div>
@@ -261,8 +304,11 @@ export default function AdminDocumentsPage() {
 
         {/* Document Library table */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-base font-semibold text-brand-dark mb-4">Document Library</h2>
+          <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-brand-dark flex items-center gap-2">
+              <FileStack className="w-5 h-5 text-brand" strokeWidth={2} />
+              Document Library
+            </h2>
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="search"
@@ -289,16 +335,16 @@ export default function AdminDocumentsPage() {
             <table className="w-max min-w-[1000px] text-sm table-fixed">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">#</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">File Name</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Type</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Company</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Linked Deal</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Uploaded By</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Date</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Size</th>
-                  <th className="text-left py-3 px-3 font-semibold text-gray-600">Notes</th>
-                  <th className="text-center py-3 px-3 font-semibold text-gray-600">Actions</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">S.No</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">File Name</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Type</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Company</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Linked Deal</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Uploaded By</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Date</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Size</th>
+                  <th className="text-left py-3 px-3 font-semibold text-black">Notes</th>
+                  <th className="text-center py-3 px-3 font-semibold text-black">Actions</th>
                 </tr>
               </thead>
               <tbody>
