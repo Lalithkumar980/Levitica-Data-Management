@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Bell,
   LayoutDashboard,
@@ -14,7 +14,11 @@ import {
   Briefcase,
   Percent,
   AlertCircle,
+  User,
+  LogOut,
 } from "lucide-react";
+
+const ADMIN_USER = { name: "Arjun Kapoor", role: "Admin", email: "admin@levitica.com", initials: "AK" };
 
 const RECENT_ACTIVITY = [
   { title: "Proposal Sent - GreenPath", company: "GreenPath Solutions", user: "Meena Reddy", date: "2025-02-16", icon: FileText },
@@ -61,23 +65,33 @@ const UPCOMING_FOLLOWUPS = [
 export default function AdminOverview() {
   const maxPipeline = Math.max(...PIPELINE_STAGES.map((s) => s.count), 1);
   const maxLeads = Math.max(...LEADS_BY_SOURCE.map((s) => s.count), 1);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
+    };
+    if (profileOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileOpen]);
 
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 min-w-0">
           <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0" aria-hidden>
             <LayoutDashboard className="w-5 h-5" strokeWidth={2} />
           </span>
           <div className="flex flex-col gap-0.5 min-w-0">
-            <h1 className="text-lg font-semibold text-brand-dark leading-tight">Dashboard</h1>
-            <p className="text-sm text-body leading-snug">Track leads, pipeline, revenue, and activity at a glance.</p>
+            <h1 className="text-lg font-bold text-black leading-tight">Dashboard</h1>
+            <p className="text-[13px] text-black/70">Track leads, pipeline, revenue, and activity at a glance.</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <input
             type="search"
-            placeholder="Search CRM..."
+            placeholder="Search anything..."
             className="w-64 px-4 py-2 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
           />
           <button
@@ -87,81 +101,120 @@ export default function AdminOverview() {
           >
             <Bell className="w-5 h-5" strokeWidth={2} />
           </button>
+          <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
+            <button
+              type="button"
+              onClick={() => setProfileOpen((o) => !o)}
+              className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition"
+              aria-expanded={profileOpen}
+              aria-haspopup="true"
+            >
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
+                {ADMIN_USER.initials}
+              </div>
+            </button>
+            {profileOpen && (
+              <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
+                <div className="px-4 pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                      {ADMIN_USER.initials}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-black truncate">{ADMIN_USER.name}</p>
+                      <p className="text-xs font-medium text-black/70">{ADMIN_USER.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{ADMIN_USER.email}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="py-1">
+                  <button type="button" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-black hover:bg-gray-50 transition text-left">
+                    <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
+                    My Profile
+                  </button>
+                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
+                    <LogOut className="w-4 h-4" strokeWidth={2} />
+                    Log out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
-        {/* Six KPI cards - same style as Finance */}
+        {/* Six KPI cards - same style as HR */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <div className="group rounded-2xl bg-gradient-to-br from-blue-50 to-white border border-blue-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-blue-600/90 uppercase tracking-wider mb-1.5">Total Leads</p>
-                <p className="text-2xl font-bold text-blue-700 tabular-nums tracking-tight">8</p>
-                <p className="text-xs text-gray-500 mt-1.5">3 new</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Total Leads</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">8</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">3 new</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-blue-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Target className="w-5 h-5 text-blue-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Target className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-teal-50 to-white border border-teal-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-teal-600/90 uppercase tracking-wider mb-1.5">Revenue Won</p>
-                <p className="text-2xl font-bold text-teal-700 tabular-nums tracking-tight">₹17,70,000</p>
-                <p className="text-xs text-gray-500 mt-1.5">Won</p>
+                <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Revenue Won</p>
+                <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">₹17,70,000</p>
+                <p className="text-xs font-medium text-teal-700/80 mt-1.5">Won</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-teal-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Wallet className="w-5 h-5 text-teal-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-teal-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Wallet className="w-6 h-6 text-teal-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-brand-soft to-white border border-brand-light/80 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-brand-dark/80 uppercase tracking-wider mb-1.5">Active Pipeline</p>
-                <p className="text-2xl font-bold text-brand-dark tabular-nums tracking-tight">₹32,25,000</p>
-                <p className="text-xs text-gray-500 mt-1.5">Value</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Active Pipeline</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">₹32,25,000</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">Value</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-brand-light flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Briefcase className="w-5 h-5 text-brand" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Briefcase className="w-6 h-6 text-blue-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-amber-50 to-white border border-amber-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-amber-100 border-2 border-amber-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-amber-600/90 uppercase tracking-wider mb-1.5">Win Rate</p>
-                <p className="text-2xl font-bold text-amber-700 tabular-nums tracking-tight">25%</p>
-                <p className="text-xs text-gray-500 mt-1.5">Rate</p>
+                <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-1.5">Win Rate</p>
+                <p className="text-2xl font-bold text-amber-900 tabular-nums tracking-tight">25%</p>
+                <p className="text-xs font-medium text-amber-700/80 mt-1.5">Rate</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-amber-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Percent className="w-5 h-5 text-amber-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-amber-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Percent className="w-6 h-6 text-amber-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-violet-50 to-white border border-violet-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-violet-100 border-2 border-violet-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-violet-600/90 uppercase tracking-wider mb-1.5">Total Activities</p>
-                <p className="text-2xl font-bold text-violet-700 tabular-nums tracking-tight">6</p>
-                <p className="text-xs text-gray-500 mt-1.5">6 calls</p>
+                <p className="text-[11px] font-bold text-violet-800 uppercase tracking-wider mb-1.5">Total Activities</p>
+                <p className="text-2xl font-bold text-violet-900 tabular-nums tracking-tight">6</p>
+                <p className="text-xs font-medium text-violet-700/80 mt-1.5">6 calls</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-violet-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Activity className="w-5 h-5 text-violet-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-violet-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Activity className="w-6 h-6 text-violet-700" strokeWidth={2} />
               </span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-gradient-to-br from-red-50 to-white border border-red-100/60 p-5 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="group rounded-2xl bg-red-100 border-2 border-red-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-semibold text-red-600/90 uppercase tracking-wider mb-1.5">Overdue Tasks</p>
-                <p className="text-2xl font-bold text-red-700 tabular-nums tracking-tight">5</p>
-                <p className="text-xs text-gray-500 mt-1.5">5 pending total</p>
+                <p className="text-[11px] font-bold text-red-800 uppercase tracking-wider mb-1.5">Overdue Tasks</p>
+                <p className="text-2xl font-bold text-red-900 tabular-nums tracking-tight">5</p>
+                <p className="text-xs font-medium text-red-700/80 mt-1.5">5 pending total</p>
               </div>
-              <span className="w-11 h-11 rounded-xl bg-red-100/80 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <AlertCircle className="w-5 h-5 text-red-600" strokeWidth={2} />
+              <span className="w-12 h-12 rounded-xl bg-red-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <AlertCircle className="w-6 h-6 text-red-700" strokeWidth={2} />
               </span>
             </div>
           </div>
