@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Bell, Building2, Plus, Pencil, Trash2, X, Save, User, LogOut } from "lucide-react";
+import { getStoredUser, clearAuth } from "../../utils/api";
 
 const SALES_USER = { name: "Vikram Joshi", role: "Sales Rep", email: "vikram.joshi@company.com", initials: "VJ" };
 
@@ -277,6 +279,8 @@ const INITIAL_COMPANIES = [
 ];
 
 export default function CompaniesPage() {
+  const navigate = useNavigate();
+  const currentUser = getStoredUser() || SALES_USER;
   const [companies, setCompanies] = useState(INITIAL_COMPANIES);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
@@ -355,23 +359,23 @@ export default function CompaniesPage() {
           </button>
           <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
             <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
-              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{SALES_USER.initials}</div>
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{currentUser.initials || "—"}</div>
             </button>
             {profileOpen && (
               <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
                 <div className="px-4 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{SALES_USER.initials}</div>
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{currentUser.initials || "—"}</div>
                     <div className="min-w-0">
-                      <p className="font-bold text-black truncate">{SALES_USER.name}</p>
-                      <p className="text-xs font-medium text-black/70">{SALES_USER.role}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{SALES_USER.email}</p>
+                      <p className="font-bold text-black truncate">{currentUser.name}</p>
+                      <p className="text-xs font-medium text-black/70">{currentUser.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{currentUser.email}</p>
                     </div>
                   </div>
                 </div>
                 <div className="py-1">
                   <button type="button" className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-black hover:bg-gray-50 transition text-left"><User className="w-4 h-4 text-gray-500" strokeWidth={2} /> My Profile</button>
-                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left"><LogOut className="w-4 h-4" strokeWidth={2} /> Log out</button>
+                  <button type="button" onClick={() => { clearAuth(); navigate("/login"); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left"><LogOut className="w-4 h-4" strokeWidth={2} /> Log out</button>
                 </div>
               </div>
             )}

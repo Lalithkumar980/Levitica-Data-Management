@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { apiRequest, setAuth } from "../utils/api";
 
 const ROLES = [
   { value: "", label: "Select role" },
@@ -20,6 +22,7 @@ export default function Login() {
   });
 
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const isRoleSelected = formData.role !== "";
 
@@ -35,21 +38,29 @@ export default function Login() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const roleEntry = ROLES.find((r) => r.value === formData.role);
-    const roleLabel = roleEntry ? roleEntry.label : "Enterprise";
+    setLoading(true);
     try {
-      localStorage.setItem("levitica_user_role", roleLabel);
-    } catch (_) {}
-
-    if (formData.role === "admin") return navigate("/admin");
-    if (formData.role === "hr_management") return navigate("/dashboard");
-    if (formData.role === "finance_management") return navigate("/finance");
-    if (formData.role === "sales_Manager" || formData.role === "sales_representative") return navigate("/sales");
-
-    console.log("Sign in", formData);
+      const data = await apiRequest("/api/auth/login", {
+        method: "POST",
+        body: { email: formData.email.trim(), password: formData.password },
+      });
+      setAuth(data.token, data.user);
+      try {
+        localStorage.setItem("levitica_user_role", data.user.role || "");
+      } catch (_) {}
+      const role = (data.user && data.user.role) ? data.user.role : "";
+      if (role === "Admin") return navigate("/admin");
+      if (role === "Sales Manager" || role === "Sales Rep") return navigate("/sales");
+      if (role === "HR Management") return navigate("/dashboard");
+      if (role === "Finance Management") return navigate("/finance");
+      navigate("/admin");
+    } catch (err) {
+      toast.error(err.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChangeRole = () => {
@@ -159,9 +170,10 @@ export default function Login() {
               {/* SIGN IN BUTTON */}
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition"
+                disabled={loading}
+                className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition disabled:opacity-70"
               >
-                Sign In →
+                {loading ? "Signing in…" : "Sign In →"}
               </button>
             </>
           )}

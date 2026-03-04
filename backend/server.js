@@ -14,6 +14,11 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Backend is running' });
 });
 
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+
 // Connect to MongoDB if MONGODB_URI is set (e.g. in .env)
 if (process.env.MONGODB_URI) {
   connectDB();

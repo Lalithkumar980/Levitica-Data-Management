@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Bell, Plus, Check, X, Users, User, Save, Eye, EyeOff, Pencil, LogOut } from "lucide-react";
-
-const ADMIN_USER = { name: "Arjun Kapoor", role: "Admin", email: "admin@levitica.com", initials: "AK" };
+import { apiRequest, getStoredUser, clearAuth } from "../../utils/api";
 
 const ROLE_CLASS = {
   Admin: "bg-blue-100 text-blue-700",
@@ -16,15 +16,6 @@ const ROLE_DEFAULTS = {
 };
 const ROLES = ["Admin", "Sales Manager", "Sales Rep"];
 const DEPARTMENTS = ["Management", "Sales Management", "Sales"];
-
-const INITIAL_USERS = [
-  { id: 1, initials: "AK", name: "Arjun Kapoor", email: "admin@salespulse.com", role: "Admin", roleClass: "bg-blue-100 text-blue-700", dept: "Management", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -6"], viewAll: true, delete: true, export: true, admin: true },
-  { id: 2, initials: "PN", name: "Priya Nair", email: "manager@salespulse.com", role: "Sales Manager", roleClass: "bg-emerald-100 text-emerald-700", dept: "Sales Management", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -7"], viewAll: true, delete: false, export: true, admin: false },
-  { id: 3, initials: "VJ", name: "Vikram Joshi", email: "rep1@salespulse.com", role: "Sales Rep", roleClass: "bg-amber-100 text-amber-700", dept: "Sales", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -4"], viewAll: false, delete: false, export: true, admin: false },
-  { id: 4, initials: "MR", name: "Meena Reddy", email: "rep2@salespulse.com", role: "Sales Rep", roleClass: "bg-amber-100 text-amber-700", dept: "Sales", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -4"], viewAll: false, delete: false, export: true, admin: false },
-  { id: 5, initials: "AD", name: "Aditya Kumar", email: "rep3@salespulse.com", role: "Sales Rep", roleClass: "bg-amber-100 text-amber-700", dept: "Sales", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -4"], viewAll: false, delete: false, export: true, admin: false },
-  { id: 6, initials: "KS", name: "Kavya Shah", email: "rep4@salespulse.com", role: "Sales Rep", roleClass: "bg-amber-100 text-amber-700", dept: "Sales", modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -4"], viewAll: false, delete: false, export: true, admin: false },
-];
 
 const initialUserForm = {
   fullName: "",
@@ -51,15 +42,40 @@ function getInitials(fullName) {
 }
 
 export default function AdminUsersRolesPage() {
-  const [users, setUsers] = useState(INITIAL_USERS);
+  const navigate = useNavigate();
+  const currentUser = getStoredUser() || { name: "Admin", role: "Admin", email: "", initials: "AK" };
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [userForm, setUserForm] = useState(initialUserForm);
+  const [saving, setSaving] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [detailsEditMode, setDetailsEditMode] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", email: "", role: "Sales Rep", department: "Sales", password: "" });
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await apiRequest("/api/users");
+        if (!cancelled) setUsers(Array.isArray(list) ? list : []);
+      } catch (err) {
+        if (!cancelled && err.status === 401) {
+          clearAuth();
+          navigate("/login");
+          return;
+        }
+        if (!cancelled) toast.error(err.message || "Failed to load users");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -73,7 +89,7 @@ export default function AdminUsersRolesPage() {
     setUserForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveUser = () => {
+  const handleSaveUser = async () => {
     const { fullName, email, role, department, password } = userForm;
     if (!fullName.trim() || !email.trim()) {
       toast.error("Please fill in required fields (Name and Email).");
@@ -83,27 +99,26 @@ export default function AdminUsersRolesPage() {
       toast.error("Admin must set an initial password for the user.");
       return;
     }
-    const defaults = ROLE_DEFAULTS[role] || ROLE_DEFAULTS["Sales Rep"];
-    const newId = users.length ? Math.max(...users.map((u) => u.id)) + 1 : 1;
-    const newUser = {
-      id: newId,
-      initials: getInitials(fullName),
-      name: fullName.trim(),
-      email: email.trim(),
-      role,
-      roleClass: ROLE_CLASS[role] || ROLE_CLASS["Sales Rep"],
-      dept: department,
-      modules: defaults.modules,
-      viewAll: defaults.viewAll,
-      delete: defaults.delete,
-      export: defaults.export,
-      admin: defaults.admin,
-      password: password.trim(),
-    };
-    setUsers((prev) => [newUser, ...prev]);
-    setUserForm(initialUserForm);
-    setAddModalOpen(false);
-    toast.success("User added successfully.");
+    setSaving(true);
+    try {
+      const created = await apiRequest("/api/users", {
+        method: "POST",
+        body: { fullName: fullName.trim(), email: email.trim(), role, department: department || "Sales", password: password.trim() },
+      });
+      const newUser = {
+        ...created,
+        id: created.id || created._id,
+        dept: created.dept ?? created.department,
+      };
+      setUsers((prev) => [newUser, ...prev]);
+      setUserForm(initialUserForm);
+      setAddModalOpen(false);
+      toast.success("User added successfully.");
+    } catch (err) {
+      toast.error(err.message || "Failed to add user");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const closeAddModal = () => {
@@ -127,34 +142,41 @@ export default function AdminUsersRolesPage() {
     setEditForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!selectedUser) return;
     const { name, email, role, department, password } = editForm;
     if (!name.trim() || !email.trim()) {
       toast.error("Name and Email are required.");
       return;
     }
-    const defaults = ROLE_DEFAULTS[role] || ROLE_DEFAULTS["Sales Rep"];
-    const updatedUser = {
-      ...selectedUser,
-      name: name.trim(),
-      email: email.trim(),
-      role,
-      roleClass: ROLE_CLASS[role] || ROLE_CLASS["Sales Rep"],
-      dept: department,
-      initials: getInitials(name),
-      modules: defaults.modules,
-      viewAll: defaults.viewAll,
-      delete: defaults.delete,
-      export: defaults.export,
-      admin: defaults.admin,
-      ...(password.trim() ? { password: password.trim() } : {}),
-    };
-    setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? updatedUser : u)));
-    setSelectedUser(updatedUser);
-    setDetailsEditMode(false);
-    setEditForm({ name: "", email: "", role: "Sales Rep", department: "Sales", password: "" });
-    toast.success("User updated successfully.");
+    setSavingEdit(true);
+    try {
+      const payload = {
+        name: name.trim(),
+        email: email.trim(),
+        role,
+        department: department || "Sales",
+      };
+      if (password.trim()) payload.password = password.trim();
+      const updated = await apiRequest(`/api/users/${selectedUser.id}`, {
+        method: "PUT",
+        body: payload,
+      });
+      const updatedUser = {
+        ...updated,
+        id: updated.id || updated._id,
+        dept: updated.dept ?? updated.department,
+      };
+      setUsers((prev) => prev.map((u) => (u.id === selectedUser.id ? updatedUser : u)));
+      setSelectedUser(updatedUser);
+      setDetailsEditMode(false);
+      setEditForm({ name: "", email: "", role: "Sales Rep", department: "Sales", password: "" });
+      toast.success("User updated successfully.");
+    } catch (err) {
+      toast.error(err.message || "Failed to update user");
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -197,17 +219,17 @@ export default function AdminUsersRolesPage() {
           </button>
           <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
             <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
-              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{ADMIN_USER.initials}</div>
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{currentUser.initials || "AK"}</div>
             </button>
             {profileOpen && (
               <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
                 <div className="px-4 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{ADMIN_USER.initials}</div>
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{currentUser.initials || "AK"}</div>
                     <div className="min-w-0">
-                      <p className="font-bold text-black truncate">{ADMIN_USER.name}</p>
-                      <p className="text-xs font-medium text-black/70">{ADMIN_USER.role}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{ADMIN_USER.email}</p>
+                      <p className="font-bold text-black truncate">{currentUser.name}</p>
+                      <p className="text-xs font-medium text-black/70">{currentUser.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{currentUser.email}</p>
                     </div>
                   </div>
                 </div>
@@ -216,7 +238,7 @@ export default function AdminUsersRolesPage() {
                     <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
                     My Profile
                   </button>
-                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
+                  <button type="button" onClick={() => { clearAuth(); navigate("/login"); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
                     <LogOut className="w-4 h-4" strokeWidth={2} />
                     Log out
                   </button>
@@ -302,7 +324,10 @@ export default function AdminUsersRolesPage() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((row, idx) => (
+                {loading ? (
+                  <tr><td colSpan={7} className="py-8 text-center text-gray-500">Loading users…</td></tr>
+                ) : (
+                users.map((row, idx) => (
                   <tr
                     key={row.id ?? idx}
                     onClick={() => { setSelectedUser(row); setShowPassword(false); setDetailsEditMode(false); }}
@@ -355,7 +380,8 @@ export default function AdminUsersRolesPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                ))
+                )}
               </tbody>
             </table>
           </div>
@@ -489,10 +515,11 @@ export default function AdminUsersRolesPage() {
               <button
                 type="button"
                 onClick={handleSaveUser}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-brand-blue transition"
+                disabled={saving}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-brand-blue transition disabled:opacity-70"
               >
                 <Save className="w-4 h-4" strokeWidth={2} />
-                Save User
+                {saving ? "Saving…" : "Save User"}
               </button>
             </div>
           </div>
@@ -606,7 +633,11 @@ export default function AdminUsersRolesPage() {
                         <dt className="text-body">Password</dt>
                         <dd className="flex items-center gap-2">
                           <span className="text-body font-mono">
-                            {showPassword ? (selectedUser.password || "Not set") : "••••••••"}
+                            {showPassword
+                              ? (selectedUser.passwordDisplay != null && selectedUser.passwordDisplay !== ""
+                                ? selectedUser.passwordDisplay
+                                : "Set (use Edit to set a new password to display it)")
+                              : "••••••••"}
                           </span>
                           <button
                             type="button"
@@ -677,10 +708,11 @@ export default function AdminUsersRolesPage() {
                   <button
                     type="button"
                     onClick={handleSaveEdit}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-brand-blue transition"
+                    disabled={savingEdit}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-brand-blue transition disabled:opacity-70"
                   >
                     <Save className="w-4 h-4" strokeWidth={2} />
-                    Save
+                    {savingEdit ? "Saving…" : "Save"}
                   </button>
                 </>
               ) : (

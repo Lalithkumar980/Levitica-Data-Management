@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Bell,
   User,
@@ -8,6 +9,7 @@ import {
   ClipboardList,
   Clock,
 } from "lucide-react";
+import { getStoredUser, clearAuth } from "../../utils/api";
 
 const SALES_USER = { name: "Vikram Joshi", role: "Sales Rep", email: "vikram.joshi@company.com", initials: "VJ" };
 
@@ -31,6 +33,8 @@ const IMPORT_HISTORY = [
 ];
 
 export default function BulkUploadPage() {
+  const navigate = useNavigate();
+  const currentUser = getStoredUser() || SALES_USER;
   const [profileOpen, setProfileOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -102,7 +106,7 @@ export default function BulkUploadPage() {
               aria-haspopup="true"
             >
               <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
-                {SALES_USER.initials}
+                {currentUser.initials || "—"}
               </div>
             </button>
             {profileOpen && (
@@ -110,12 +114,12 @@ export default function BulkUploadPage() {
                 <div className="px-4 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                      {SALES_USER.initials}
+                      {currentUser.initials || "—"}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-black truncate">{SALES_USER.name}</p>
-                      <p className="text-xs font-medium text-black/70">{SALES_USER.role}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{SALES_USER.email}</p>
+                      <p className="font-bold text-black truncate">{currentUser.name}</p>
+                      <p className="text-xs font-medium text-black/70">{currentUser.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{currentUser.email}</p>
                     </div>
                   </div>
                 </div>
@@ -124,7 +128,7 @@ export default function BulkUploadPage() {
                     <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
                     My Profile
                   </button>
-                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
+                  <button type="button" onClick={() => { clearAuth(); navigate("/login"); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
                     <LogOut className="w-4 h-4" strokeWidth={2} />
                     Log out
                   </button>
