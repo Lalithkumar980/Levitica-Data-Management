@@ -12,6 +12,16 @@ const ROLES = [
   { value: "sales_representative", label: "Sales Representative" },
 ];
 
+// Map dropdown value → backend user.role
+const ROLE_TO_BACKEND = {
+  admin: "Admin",
+  hr_management: "HR Management",
+  sales_Manager: "Sales Manager",
+  finance_management: "Finance Management",
+  sales_representative: "Sales Rep",
+};
+const SUPPORTED_BACKEND_ROLES = new Set(Object.values(ROLE_TO_BACKEND));
+
 export default function Login() {
   const navigate = useNavigate();
 
@@ -46,15 +56,25 @@ export default function Login() {
         method: "POST",
         body: { email: formData.email.trim(), password: formData.password },
       });
+      const userRole = (data.user && data.user.role) ? data.user.role : "";
+      const expectedRole = ROLE_TO_BACKEND[formData.role];
+      // Validate: when backend role is supported, it must match the selected dropdown role
+      if (expectedRole && userRole !== expectedRole) {
+        if (SUPPORTED_BACKEND_ROLES.has(userRole)) {
+          const selectedLabel = ROLES.find((r) => r.value === formData.role)?.label || formData.role;
+          toast.error(`User not found for the selected role. This account is not registered as ${selectedLabel}. Please select the correct role or use the correct account.`);
+          return;
+        }
+        // Backend returned an unsupported role (e.g. future role) — allow login and route below
+      }
       setAuth(data.token, data.user);
       try {
         localStorage.setItem("levitica_user_role", data.user.role || "");
       } catch (_) {}
-      const role = (data.user && data.user.role) ? data.user.role : "";
-      if (role === "Admin") return navigate("/admin");
-      if (role === "Sales Manager" || role === "Sales Rep") return navigate("/sales");
-      if (role === "HR Management") return navigate("/dashboard");
-      if (role === "Finance Management") return navigate("/finance");
+      if (userRole === "Admin") return navigate("/admin");
+      if (userRole === "Sales Manager" || userRole === "Sales Rep") return navigate("/sales");
+      if (userRole === "HR Management") return navigate("/dashboard");
+      if (userRole === "Finance Management") return navigate("/finance");
       navigate("/admin");
     } catch (err) {
       toast.error(err.message || "Login failed");

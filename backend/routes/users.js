@@ -6,8 +6,19 @@ const { decrypt } = require('../utils/encrypt');
 
 const ROLE_DEFAULTS = {
   Admin: { viewAll: true, delete: true, export: true, admin: true, bulkImport: true, viewReports: true, modules: ['/dashboard', '/leads', '/contacts', '/companies', '/deals -6'] },
+  'HR Management': { viewAll: true, delete: false, export: true, admin: false, bulkImport: true, viewReports: true, modules: ['/dashboard', '/candidates'] },
   'Sales Manager': { viewAll: true, delete: false, export: true, admin: false, bulkImport: true, viewReports: true, modules: ['/dashboard', '/leads', '/contacts', '/companies', '/deals -7'] },
+  'Finance Management': { viewAll: true, delete: false, export: true, admin: false, bulkImport: false, viewReports: true, modules: ['/finance', '/invoices', '/expenses', '/payments'] },
   'Sales Rep': { viewAll: false, delete: false, export: true, admin: false, bulkImport: false, viewReports: true, modules: ['/dashboard', '/leads', '/contacts', '/companies', '/deals -4'] },
+};
+
+const ALL_ROLES = ['Admin', 'HR Management', 'Sales Manager', 'Finance Management', 'Sales Rep'];
+const ROLE_CLASS_MAP = {
+  Admin: 'bg-blue-100 text-blue-700',
+  'HR Management': 'bg-violet-100 text-violet-700',
+  'Sales Manager': 'bg-emerald-100 text-emerald-700',
+  'Finance Management': 'bg-sky-100 text-sky-700',
+  'Sales Rep': 'bg-amber-100 text-amber-700',
 };
 
 /** GET /api/users — list all users (admin only); includes decrypted password for admin view */
@@ -20,7 +31,7 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
       obj.initials = initials.length >= 2
         ? (initials[0][0] + initials[initials.length - 1][0]).toUpperCase()
         : (initials[0] || '').slice(0, 2).toUpperCase() || '—';
-      obj.roleClass = { Admin: 'bg-blue-100 text-blue-700', 'Sales Manager': 'bg-emerald-100 text-emerald-700', 'Sales Rep': 'bg-amber-100 text-amber-700' }[u.role] || 'bg-amber-100 text-amber-700';
+      obj.roleClass = ROLE_CLASS_MAP[u.role] || 'bg-gray-100 text-gray-700';
       delete obj.password;
       obj.passwordDisplay = u.passwordEncrypted ? decrypt(u.passwordEncrypted) : '';
       delete obj.passwordEncrypted;
@@ -43,7 +54,7 @@ router.post('/', authenticate, requireAdmin, async (req, res) => {
     if (!password || String(password).trim().length < 6) {
       return res.status(400).json({ message: 'Password is required (min 6 characters)' });
     }
-    const r = (role && ['Admin', 'Sales Manager', 'Sales Rep'].includes(role)) ? role : 'Sales Rep';
+    const r = (role && ALL_ROLES.includes(role)) ? role : 'Sales Rep';
     const defaults = ROLE_DEFAULTS[r] || ROLE_DEFAULTS['Sales Rep'];
     const existing = await User.findOne({ email: String(email).trim().toLowerCase() });
     if (existing) {
@@ -76,7 +87,7 @@ router.put('/:id', authenticate, requireAdmin, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
     if (name != null) user.name = String(name).trim();
     if (email != null) user.email = String(email).trim().toLowerCase();
-    if (role && ['Admin', 'Sales Manager', 'Sales Rep'].includes(role)) user.role = role;
+    if (role && ALL_ROLES.includes(role)) user.role = role;
     if (department != null) user.department = String(department).trim();
     if (password != null && String(password).trim()) {
       user.password = String(password).trim();

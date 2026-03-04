@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, trim: true, lowercase: true },
     password: { type: String, required: true, minlength: 6, select: false },
     passwordEncrypted: { type: String, select: false },
-    role: { type: String, required: true, enum: ['Admin', 'Sales Manager', 'Sales Rep'] },
+    role: { type: String, required: true, enum: ['Admin', 'HR Management', 'Sales Manager', 'Finance Management', 'Sales Rep'] },
     department: { type: String, default: 'Sales', trim: true },
     viewAll: { type: Boolean, default: false },
     delete: { type: Boolean, default: false },
@@ -41,7 +41,9 @@ function getInitials(name) {
 
 const ROLE_CLASS = {
   Admin: 'bg-blue-100 text-blue-700',
+  'HR Management': 'bg-violet-100 text-violet-700',
   'Sales Manager': 'bg-emerald-100 text-emerald-700',
+  'Finance Management': 'bg-sky-100 text-sky-700',
   'Sales Rep': 'bg-amber-100 text-amber-700',
 };
 
@@ -49,7 +51,7 @@ userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.password;
   obj.initials = getInitials(obj.name);
-  obj.roleClass = ROLE_CLASS[obj.role] || ROLE_CLASS['Sales Rep'];
+  obj.roleClass = ROLE_CLASS[obj.role] || ROLE_CLASS['Sales Rep'] || 'bg-gray-100 text-gray-700';
   obj.dept = obj.department;
   obj.id = obj._id.toString();
   return obj;

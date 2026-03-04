@@ -6,15 +6,19 @@ import { apiRequest, getStoredUser, clearAuth } from "../../utils/api";
 
 const ROLE_CLASS = {
   Admin: "bg-blue-100 text-blue-700",
+  "HR Management": "bg-violet-100 text-violet-700",
   "Sales Manager": "bg-emerald-100 text-emerald-700",
+  "Finance Management": "bg-sky-100 text-sky-700",
   "Sales Rep": "bg-amber-100 text-amber-700",
 };
 const ROLE_DEFAULTS = {
   Admin: { viewAll: true, delete: true, export: true, admin: true, modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -6"] },
+  "HR Management": { viewAll: true, delete: false, export: true, admin: false, modules: ["/dashboard", "/candidates"] },
   "Sales Manager": { viewAll: true, delete: false, export: true, admin: false, modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -7"] },
+  "Finance Management": { viewAll: true, delete: false, export: true, admin: false, modules: ["/finance", "/invoices", "/expenses", "/payments"] },
   "Sales Rep": { viewAll: false, delete: false, export: true, admin: false, modules: ["/dashboard", "/leads", "/contacts", "/companies", "/deals -4"] },
 };
-const ROLES = ["Admin", "Sales Manager", "Sales Rep"];
+const ROLES = ["Admin", "HR Management", "Sales Manager", "Finance Management", "Sales Rep"];
 const DEPARTMENTS = ["Management", "Sales Management", "Sales"];
 
 const initialUserForm = {
