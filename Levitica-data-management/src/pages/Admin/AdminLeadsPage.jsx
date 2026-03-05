@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   Bell,
@@ -19,21 +20,43 @@ import {
   LogOut,
   Target,
 } from "lucide-react";
+import { apiRequest, getStoredUser, getToken, clearAuth } from "../../utils/api";
 
-const ADMIN_USER = { name: "Arjun Kapoor", role: "Admin", email: "admin@levitica.com", initials: "AK" };
+function getInitials(name) {
+  if (!name || typeof name !== "string") return "—";
+  return name.trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+}
+
+/** Map backend lead to table row shape. ownerList used when lead.owner is just an id. */
+function mapLeadToRow(lead, ownerList = []) {
+  let owner = lead.owner && typeof lead.owner === "object" ? lead.owner : null;
+  if (!owner && lead.owner && ownerList.length) {
+    const id = typeof lead.owner === "string" ? lead.owner : lead.owner?.toString?.();
+    owner = ownerList.find((u) => (u.id || u._id) === id) ? { _id: id, name: ownerList.find((u) => (u.id || u._id) === id).name } : null;
+  }
+  const ownerId = owner ? (owner._id || owner.id) : (lead.owner && typeof lead.owner === "string" ? lead.owner : null);
+  const created = lead.createdAt ? new Date(lead.createdAt).toISOString().slice(0, 10) : "—";
+  return {
+    id: lead._id,
+    ownerId: ownerId || null,
+    name: [lead.fname, lead.lname].filter(Boolean).join(" ") || "—",
+    subtext: lead.notes ? lead.notes.slice(0, 50) : "—",
+    company: lead.company || "—",
+    phone: lead.phone || "—",
+    email: lead.email || "—",
+    industry: lead.industry || "—",
+    city: lead.city ? (lead.city + (lead.country ? `, ${lead.country}` : "")).trim() : (lead.country || "—"),
+    source: lead.source || "—",
+    status: lead.status || "New",
+    owner: owner ? owner.name : "—",
+    ownerInitials: getInitials(owner ? owner.name : ""),
+    created,
+  };
+}
 
 const INDUSTRIES = ["Technology", "Consulting", "Retail", "Healthcare", "Education", "Finance", "Manufacturing", "Other"];
 const LEAD_SOURCES = ["Website", "Referral", "Cold Call", "LinkedIn", "Event/Trade Show", "Partner", "Advertisement"];
 const STATUS_OPTIONS = ["New", "Contacted", "Qualified", "Converted", "Disqualified"];
-const ASSIGNED_USERS = [
-  { name: "Priya Nair", initials: "PN" },
-  { name: "Arjun Kapoor", initials: "AR" },
-  { name: "Vikram Joshi", initials: "VJ" },
-  { name: "Meena Reddy", initials: "MR" },
-  { name: "Aditya Kumar", initials: "AK" },
-  { name: "Kavya Shah", initials: "KS" },
-];
-
 const STATUS_STYLES = {
   New: "bg-blue-100 text-blue-700",
   Contacted: "bg-amber-100 text-amber-700",
@@ -52,17 +75,6 @@ const SOURCE_STYLES = {
   Advertisement: "bg-gray-100 text-gray-700",
 };
 
-const INITIAL_LEADS = [
-  { id: 1, name: "Rohan Mehta", subtext: "Marat Tech Summit", company: "TechNova Pvt Ltd", phone: "9876543213", email: "rohan@technova.com", industry: "Technology", city: "Bangalore, India", source: "Referral", status: "New", owner: "Vikram Joshi", ownerInitials: "VJ", created: "2025-01-10" },
-  { id: 2, name: "Sanya Kapoor", subtext: "Filled contact form", company: "GreenPath Solutions", phone: "9123456783", email: "sanya@greenpath.in", industry: "Consulting", city: "Mumbai, India", source: "Website", status: "Contacted", owner: "Vikram Joshi", ownerInitials: "VJ", created: "2025-01-14" },
-  { id: 3, name: "Deepak Rao", subtext: "Budget confirmac", company: "Horizon Retail Co", phone: "9988776655", email: "deepak@horizon.co", industry: "Retail", city: "Delhi, India", source: "Cold Call", status: "Qualified", owner: "Meena Reddy", ownerInitials: "MR", created: "2025-01-18" },
-  { id: 4, name: "Anjali Tiwari", subtext: "Connected on LinkedIn", company: "CloudSoft India", phone: "9011223344", email: "anjali@cloudsoft.io", industry: "Technology", city: "Hyderabad, India", source: "LinkedIn", status: "New", owner: "Meena Reddy", ownerInitials: "MR", created: "2025-01-20" },
-  { id: 5, name: "Sunil Naik", subtext: "Ready to convert to deal", company: "MediCore India", phone: "583881734", email: "sunil@medicore.in", industry: "Healthcare", city: "Ahmedabad, India", source: "Event/Trade Show", status: "Converted", owner: "Aditya Kumar", ownerInitials: "AK", created: "2025-01-22" },
-  { id: 6, name: "Pooja Menon", subtext: "NGO - special pricing needed", company: "EduLeap Foundation", phone: "9658098765", email: "pooja@eduleap.org", industry: "Education", city: "Pune, India", source: "Partner", status: "New", owner: "Aditya Kumar", ownerInitials: "AK", created: "2025-02-05" },
-  { id: 7, name: "Ravi Shah", subtext: "Interested in Enterprise plan", company: "FinPlex Systems", phone: "9955884403", email: "ravi@finplex.com", industry: "Finance", city: "Chennai, India", source: "Cold Call", status: "Contacted", owner: "Kavya Shah", ownerInitials: "KS", created: "2025-02-08" },
-  { id: 8, name: "Nisha Jain", subtext: "Budget too low", company: "AutoParts Hub", phone: "9738123456", email: "nisha@autoparts.co", industry: "Manufacturing", city: "Surat, India", source: "Advertisement", status: "Disqualified", owner: "Kavya Shah", ownerInitials: "KS", created: "2025-02-10" },
-];
-
 const initialLeadForm = {
   firstName: "",
   lastName: "",
@@ -74,12 +86,18 @@ const initialLeadForm = {
   country: "India",
   leadSource: "Website",
   status: "New",
-  assignedTo: "Priya Nair",
+  assignedTo: "",
   notes: "",
 };
 
 export default function AdminLeadsPage() {
-  const [leads, setLeads] = useState(INITIAL_LEADS);
+  const navigate = useNavigate();
+  const storedUser = getStoredUser();
+  const adminUser = storedUser ? { name: storedUser.name || "Admin", role: storedUser.role || "Admin", email: storedUser.email || "", initials: getInitials(storedUser.name) } : { name: "Admin", role: "Admin", email: "", initials: "AD" };
+
+  const [leads, setLeads] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [sourceFilter, setSourceFilter] = useState("All Sources");
@@ -89,6 +107,48 @@ export default function AdminLeadsPage() {
   const [viewingLead, setViewingLead] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!getToken()) {
+      toast.info("Please log in to manage leads.");
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    let cancelled = false;
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [leadsRes, usersRes] = await Promise.all([
+          apiRequest("/api/v1/leads?page=1&limit=200"),
+          apiRequest("/api/v1/admin/users").catch((e) => {
+            if (e?.status === 401) throw e;
+            return { users: [] };
+          }),
+        ]);
+        if (cancelled) return;
+        setLeads((leadsRes.leads || []).map((l) => mapLeadToRow(l)));
+        setUsers(usersRes.users || []);
+      } catch (err) {
+        if (cancelled) return;
+        if (err?.status === 401) {
+          clearAuth();
+          toast.error("Session expired. Please log in again.");
+          navigate("/login", { replace: true });
+          return;
+        }
+        toast.error(err.message || "Failed to load leads");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -118,9 +178,20 @@ export default function AdminLeadsPage() {
     disqualified: leads.filter((l) => l.status === "Disqualified").length,
   };
 
-  const handleDelete = (id) => {
-    setLeads((prev) => prev.filter((l) => l.id !== id));
-    toast.success("Lead deleted");
+  const handleDelete = async (id) => {
+    try {
+      await apiRequest(`/api/v1/leads/${id}`, { method: "DELETE" });
+      setLeads((prev) => prev.filter((l) => l.id !== id));
+      toast.success("Lead deleted");
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to delete lead");
+    }
   };
 
   const openEditLead = (row) => {
@@ -130,16 +201,16 @@ export default function AdminLeadsPage() {
     setLeadForm({
       firstName,
       lastName,
-      company: row.company || "",
-      phone: row.phone || "",
-      email: row.email || "",
-      industry: row.industry || "Technology",
+      company: row.company === "—" ? "" : row.company,
+      phone: row.phone === "—" ? "" : row.phone,
+      email: row.email === "—" ? "" : row.email,
+      industry: row.industry === "—" ? "Technology" : row.industry,
       city: (row.city || "").split(",")[0]?.trim() || "",
       country: "India",
-      leadSource: row.source || "Website",
+      leadSource: row.source === "—" ? "Website" : row.source,
       status: row.status || "New",
-      assignedTo: row.owner || ASSIGNED_USERS[0]?.name || "",
-      notes: row.subtext || "",
+      assignedTo: row.ownerId || (users[0] && users[0].id) || "",
+      notes: row.subtext === "—" ? "" : row.subtext,
     });
     setEditingLead(row);
     setAddModalOpen(true);
@@ -151,34 +222,55 @@ export default function AdminLeadsPage() {
     setLeadForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveLead = () => {
+  const handleSaveLead = async () => {
     const { firstName, lastName, company, phone, email, industry, city, country, leadSource, status, assignedTo, notes } = leadForm;
-    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !leadSource) return;
-    const ownerEntry = ASSIGNED_USERS.find((u) => u.name === assignedTo) || ASSIGNED_USERS[0];
-    const payload = {
-      name: `${firstName.trim()} ${lastName.trim()}`,
-      subtext: notes.trim().slice(0, 50) || "—",
-      company: company.trim() || "—",
-      phone: phone.trim(),
-      email: email.trim() || "—",
-      industry: industry,
-      city: city.trim() ? `${city.trim()}, ${country.trim() || "India"}` : `${country.trim() || "India"}`,
-      source: leadSource,
-      status,
-      owner: ownerEntry.name,
-      ownerInitials: ownerEntry.initials,
-      created: editingLead ? editingLead.created : new Date().toISOString().slice(0, 10),
-    };
-    if (editingLead) {
-      setLeads((prev) => prev.map((l) => (l.id === editingLead.id ? { ...l, ...payload, id: l.id } : l)));
-      setEditingLead(null);
-      toast.success("Lead updated successfully");
-    } else {
-      setLeads((prev) => [{ ...payload, id: Math.max(0, ...leads.map((l) => l.id)) + 1 }, ...prev]);
-      toast.success("Lead added successfully");
+    if (!firstName.trim() || !lastName.trim() || !phone.trim() || !leadSource) {
+      toast.error("First name, last name, phone and lead source are required");
+      return;
     }
-    setLeadForm(initialLeadForm);
-    setAddModalOpen(false);
+    const ownerId = assignedTo || (users[0] && users[0].id);
+    if (!ownerId && !editingLead) {
+      toast.error("Please assign an owner (ensure users are loaded).");
+      return;
+    }
+    const payload = {
+      fname: firstName.trim(),
+      lname: lastName.trim(),
+      company: company.trim() || undefined,
+      phone: phone.trim(),
+      email: email.trim() || undefined,
+      industry: industry || undefined,
+      city: city.trim() || undefined,
+      country: (country && country.trim()) || "India",
+      source: leadSource,
+      status: status || "New",
+      notes: notes.trim() || undefined,
+      owner: ownerId,
+    };
+    try {
+      if (editingLead) {
+        const res = await apiRequest(`/api/v1/leads/${editingLead.id}`, { method: "PUT", body: payload });
+        const updated = mapLeadToRow({ ...res.lead, _id: res.lead._id, owner: res.lead.owner }, users);
+        setLeads((prev) => prev.map((l) => (l.id === editingLead.id ? updated : l)));
+        toast.success("Lead updated successfully");
+      } else {
+        const res = await apiRequest("/api/v1/leads", { method: "POST", body: payload });
+        const created = mapLeadToRow({ ...res.lead, _id: res.lead._id, owner: res.lead.owner }, users);
+        setLeads((prev) => [created, ...prev]);
+        toast.success("Lead added successfully");
+      }
+      setLeadForm(initialLeadForm);
+      setEditingLead(null);
+      setAddModalOpen(false);
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to save lead");
+    }
   };
 
   const closeAddModal = () => {
@@ -203,6 +295,8 @@ export default function AdminLeadsPage() {
           <input
             type="search"
             placeholder="Search anything..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="w-64 px-4 py-2 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
           />
           <button
@@ -214,7 +308,7 @@ export default function AdminLeadsPage() {
           </button>
           <button
             type="button"
-            onClick={() => { setEditingLead(null); setLeadForm(initialLeadForm); setAddModalOpen(true); }}
+            onClick={() => { setEditingLead(null); setLeadForm({ ...initialLeadForm, assignedTo: (users[0] && users[0].id) || "" }); setAddModalOpen(true); }}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -222,17 +316,17 @@ export default function AdminLeadsPage() {
           </button>
           <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
             <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
-              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{ADMIN_USER.initials}</div>
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{adminUser.initials}</div>
             </button>
             {profileOpen && (
               <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
                 <div className="px-4 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{ADMIN_USER.initials}</div>
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{adminUser.initials}</div>
                     <div className="min-w-0">
-                      <p className="font-bold text-black truncate">{ADMIN_USER.name}</p>
-                      <p className="text-xs font-medium text-black/70">{ADMIN_USER.role}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{ADMIN_USER.email}</p>
+                      <p className="font-bold text-black truncate">{adminUser.name}</p>
+                      <p className="text-xs font-medium text-black/70">{adminUser.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{adminUser.email}</p>
                     </div>
                   </div>
                 </div>
@@ -380,6 +474,10 @@ export default function AdminLeadsPage() {
             </div>
           </div>
 
+          {loading ? (
+            <div className="py-12 text-center text-body text-sm">Loading leads…</div>
+          ) : (
+          <React.Fragment>
           <div className="overflow-x-auto">
             <table className="w-max min-w-[1100px] text-sm table-fixed">
               <thead>
@@ -471,6 +569,8 @@ export default function AdminLeadsPage() {
           </div>
           {filtered.length === 0 && (
             <div className="py-12 text-center text-body text-sm">No leads match your filters.</div>
+          )}
+          </React.Fragment>
           )}
         </div>
       </div>
@@ -607,8 +707,9 @@ export default function AdminLeadsPage() {
                     onChange={(e) => handleLeadFormChange("assignedTo", e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                   >
-                    {ASSIGNED_USERS.map((u) => (
-                      <option key={u.initials} value={u.name}>{u.name}</option>
+                    {users.length === 0 && <option value="">No users loaded</option>}
+                    {users.map((u) => (
+                      <option key={u.id || u._id} value={u.id || u._id}>{u.name}</option>
                     ))}
                   </select>
                 </div>

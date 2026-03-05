@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import * as XLSX from "xlsx";
 import {
   Bell,
   User,
@@ -8,10 +10,45 @@ import {
   FileStack,
   ClipboardList,
   Clock,
+  FileText,
+  AlertCircle,
 } from "lucide-react";
-import { getStoredUser, clearAuth } from "../../utils/api";
+import { apiRequest, getStoredUser, getToken, clearAuth } from "../../utils/api";
 
-const SALES_USER = { name: "Vikram Joshi", role: "Sales Rep", email: "vikram.joshi@company.com", initials: "VJ" };
+const ACCEPTED_EXT = /\.(csv|xlsx?|xls)$/i;
+function isAcceptedFile(file) {
+  return file && file.name && ACCEPTED_EXT.test(file.name);
+}
+
+function excelToCsvFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: "array" });
+        const firstSheet = wb.SheetNames[0] ? wb.Sheets[wb.SheetNames[0]] : null;
+        if (!firstSheet) {
+          reject(new Error("Excel file has no sheets"));
+          return;
+        }
+        const csvStr = XLSX.utils.sheet_to_csv(firstSheet);
+        const blob = new Blob([csvStr], { type: "text/csv;charset=utf-8" });
+        const csvFile = new File([blob], (file.name || "upload").replace(/\.[^.]+$/i, "") + ".csv", { type: "text/csv" });
+        resolve(csvFile);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function getInitials(name) {
+  if (!name || typeof name !== "string") return "—";
+  return name.trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+}
 
 const CSV_COLUMNS = [
   { header: "first_name", field: "First Name", required: true, example: "Ratan" },
@@ -26,20 +63,58 @@ const CSV_COLUMNS = [
   { header: "notes", field: "Notes", required: false, example: "Met at conference" },
 ];
 
-const IMPORT_HISTORY = [
-  { file: "cold-call-list-feb.csv", uploadedBy: "Vikram Joshi", date: "2025-02-10", imported: 132, duplicatesSkipped: 13 },
-  { file: "linkedin-export-jan.csv", uploadedBy: "Meena Reddy", date: "2025-01-24", imported: 84, duplicatesSkipped: 5 },
-  { file: "event-leads-bangalore.csv", uploadedBy: "Vikram Joshi", date: "2025-01-15", imported: 56, duplicatesSkipped: 0 },
-];
-
 export default function BulkUploadPage() {
   const navigate = useNavigate();
-  const currentUser = getStoredUser() || SALES_USER;
+  const storedUser = getStoredUser();
+  const currentUser = storedUser ? { name: storedUser.name || "User", role: storedUser.role || "Sales Manager", email: storedUser.email || "", initials: getInitials(storedUser.name) } : { name: "User", role: "Sales Manager", email: "", initials: "—" };
+
   const [profileOpen, setProfileOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
   const profileRef = useRef(null);
+  const [importHistory, setImportHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [lastResult, setLastResult] = useState(null);
+
+  useEffect(() => {
+    if (!getToken()) {
+      toast.info("Please log in to upload leads.");
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    let cancelled = false;
+    async function fetchHistory() {
+      setLoading(true);
+      try {
+        const res = await apiRequest("/api/v1/import/history");
+        if (!cancelled) setImportHistory(res.history || []);
+      } catch (err) {
+        if (cancelled) return;
+        if (err?.status === 401) {
+          clearAuth();
+          toast.error("Session expired. Please log in again.");
+          navigate("/login", { replace: true });
+          return;
+        }
+        if (err?.status === 403) {
+          toast.error("You don't have permission to view import history.");
+          if (!cancelled) setImportHistory([]);
+        } else {
+          toast.error(err.message || "Failed to load import history");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchHistory();
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -53,8 +128,10 @@ export default function BulkUploadPage() {
     e.preventDefault();
     setDragOver(false);
     const file = e.dataTransfer?.files?.[0];
-    if (file && (file.name.endsWith(".csv") || file.name.endsWith(".xlsx"))) {
+    if (isAcceptedFile(file)) {
       setSelectedFile(file);
+    } else {
+      toast.warn("Please drop a CSV or Excel file (.csv, .xls, .xlsx).");
     }
   };
 
@@ -67,10 +144,59 @@ export default function BulkUploadPage() {
 
   const handleFileSelect = (e) => {
     const file = e.target?.files?.[0];
-    if (file) setSelectedFile(file);
+    if (file && isAcceptedFile(file)) setSelectedFile(file);
   };
 
   const handleBrowseClick = () => fileInputRef.current?.click();
+
+  const handleUpload = async () => {
+    const file = selectedFile && selectedFile instanceof File ? selectedFile : null;
+    if (!file) {
+      toast.warn("Please select a CSV or Excel file first.");
+      return;
+    }
+    if (!isAcceptedFile(file)) {
+      toast.warn("Accepted formats: .csv, .xls, .xlsx");
+      return;
+    }
+    setUploading(true);
+    setLastResult(null);
+    try {
+      let fileToSend = file;
+      if (/\.(xlsx?|xls)$/i.test(file.name)) {
+        try {
+          fileToSend = await excelToCsvFile(file);
+        } catch (convErr) {
+          toast.error(convErr.message || "Failed to read Excel file. Ensure it has one sheet with data.");
+          setUploading(false);
+          return;
+        }
+      }
+      const formData = new FormData();
+      formData.append("file", fileToSend);
+      const res = await apiRequest("/api/v1/import/leads/upload", { method: "POST", body: formData });
+      setLastResult(res);
+      const historyRes = await apiRequest("/api/v1/import/history");
+      setImportHistory(historyRes.history || []);
+      toast.success(`Import completed: ${res.imported ?? 0} imported, ${res.duplicates ?? 0} duplicates skipped.`);
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (err?.status === 403) {
+        toast.error("You don't have permission to upload leads.");
+      } else {
+        toast.error(err.message || "Upload failed");
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <>
@@ -81,7 +207,7 @@ export default function BulkUploadPage() {
           </span>
           <div className="flex flex-col gap-0.5 min-w-0">
             <h1 className="text-lg font-bold text-black leading-tight">Bulk Upload</h1>
-            <p className="text-[13px] text-black/70">CSV / Excel import for leads. Columns auto-mapped; duplicates detected by email & phone.</p>
+            <p className="text-[13px] text-black/70">CSV or Excel import for leads. Columns auto-mapped; duplicates detected by email & phone.</p>
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
@@ -148,14 +274,19 @@ export default function BulkUploadPage() {
             </span>
             <div>
               <h2 className="font-semibold text-black">Bulk Lead Upload (CSV / Excel)</h2>
-              <p className="text-xs text-black/70 mt-0.5">Upload a CSV file with leads. Columns will be auto-mapped. Duplicates are detected by email & phone.</p>
+              <p className="text-xs text-black/70 mt-0.5">Upload a CSV or Excel file (.csv, .xls, .xlsx) with leads. Columns will be auto-mapped. Duplicates are detected by email & phone.</p>
             </div>
           </div>
           <div className="p-6">
+            {lastResult && (
+              <div className="mb-4 p-4 rounded-xl bg-brand-soft border border-gray-200 text-sm">
+                <p className="font-medium text-brand-dark">Last import: {lastResult.imported ?? 0} imported, {lastResult.duplicates ?? 0} duplicates skipped{(lastResult.errors && lastResult.errors.length) ? `, ${lastResult.errors.length} errors` : ""}.</p>
+              </div>
+            )}
             <input
               ref={fileInputRef}
               type="file"
-              accept=".csv,.xlsx"
+              accept=".csv,.xls,.xlsx"
               onChange={handleFileSelect}
               className="hidden"
             />
@@ -169,13 +300,23 @@ export default function BulkUploadPage() {
               }`}
             >
               <ClipboardList className="w-12 h-12 text-gray-400 mb-3" strokeWidth={2} />
-              <p className="text-sm font-medium text-black mb-1">Drop CSV/Excel file here or click to browse</p>
-              <p className="text-xs text-black/60">Accepted: .csv, .xlsx · Max 10,000 rows</p>
+              <p className="text-sm font-medium text-black mb-1">Drop CSV or Excel file here or click to browse</p>
+              <p className="text-xs text-black/60">Accepted: .csv, .xls, .xlsx</p>
               {selectedFile && (
                 <p className="mt-3 text-sm font-medium text-brand truncate max-w-xs" title={selectedFile.name}>
                   Selected: {selectedFile.name}
                 </p>
               )}
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                disabled={!selectedFile || uploading}
+                onClick={handleUpload}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                {uploading ? "Uploading…" : "Upload file"}
+              </button>
             </div>
           </div>
         </div>
@@ -183,7 +324,7 @@ export default function BulkUploadPage() {
         {/* Required CSV Column Format */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-6">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-            <span className="text-red-500 font-bold">*</span>
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" strokeWidth={2} />
             <h2 className="font-semibold text-black">Required CSV Column Format</h2>
           </div>
           <div className="overflow-x-auto">
@@ -221,23 +362,32 @@ export default function BulkUploadPage() {
             <h2 className="font-semibold text-black">Import History</h2>
           </div>
           <div className="divide-y divide-gray-100">
-            {IMPORT_HISTORY.map((item, idx) => (
-              <div key={idx} className="px-5 py-4 flex items-center gap-4 hover:bg-gray-50/50 transition">
-                <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0">
-                  <FileStack className="w-5 h-5" strokeWidth={2} />
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-black truncate" title={item.file}>{item.file}</p>
-                  <p className="text-xs text-black/60 mt-0.5">
-                    Uploaded by {item.uploadedBy} on {item.date}
-                  </p>
+            {loading ? (
+              <div className="px-5 py-8 text-center text-body text-sm">Loading history…</div>
+            ) : importHistory.length === 0 ? (
+              <div className="px-5 py-8 text-center text-body text-sm">No import history yet.</div>
+            ) : (
+              importHistory.map((item) => (
+                <div key={item._id || item.id} className="px-5 py-4 flex items-center gap-4 hover:bg-gray-50/50 transition">
+                  <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0">
+                    <FileText className="w-5 h-5" strokeWidth={2} />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-black truncate" title={item.filename || item.fileName}>{item.filename || item.fileName}</p>
+                    <p className="text-xs text-black/60 mt-0.5">
+                      Uploaded by {(item.uploadedBy && (item.uploadedBy.name || item.uploadedBy)) || "—"} on {item.createdAt ? new Date(item.createdAt).toISOString().slice(0, 10) : "—"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-sm font-semibold text-emerald-600">{item.imported ?? 0} Imported</span>
+                    <span className="text-sm font-semibold text-red-600">{item.duplicates ?? item.duplicatesSkipped ?? 0} duplicates skipped</span>
+                    {(item.failed ?? 0) > 0 && (
+                      <span className="text-sm font-medium text-amber-600">{item.failed} errors</span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-sm font-semibold text-emerald-600">{item.imported} Imported</span>
-                  <span className="text-sm font-semibold text-red-600">{item.duplicatesSkipped} duplicates skipped</span>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>

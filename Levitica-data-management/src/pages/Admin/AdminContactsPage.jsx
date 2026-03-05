@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   Bell,
@@ -16,18 +17,42 @@ import {
   User,
   LogOut,
 } from "lucide-react";
+import { apiRequest, getStoredUser, getToken, clearAuth } from "../../utils/api";
 
-const ADMIN_USER = { name: "Arjun Kapoor", role: "Admin", email: "admin@levitica.com", initials: "AK" };
+function getInitials(name) {
+  if (!name || typeof name !== "string") return "—";
+  return name.trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+}
+
+/** Map backend contact to table row. ownerList used when contact.owner is just an id. */
+function mapContactToRow(contact, ownerList = []) {
+  let owner = contact.owner && typeof contact.owner === "object" ? contact.owner : null;
+  if (!owner && contact.owner && ownerList.length) {
+    const id = typeof contact.owner === "string" ? contact.owner : contact.owner?.toString?.();
+    owner = ownerList.find((u) => (u.id || u._id) === id) ? { _id: id, name: ownerList.find((u) => (u.id || u._id) === id).name } : null;
+  }
+  const ownerId = owner ? (owner._id || owner.id) : (contact.owner && typeof contact.owner === "string" ? contact.owner : null);
+  const lastContact = contact.lastContact ? new Date(contact.lastContact).toISOString().slice(0, 10) : "—";
+  return {
+    id: contact._id,
+    ownerId: ownerId || null,
+    name: [contact.fname, contact.lname].filter(Boolean).join(" ") || "—",
+    initials: getInitials([contact.fname, contact.lname].filter(Boolean).join(" ")),
+    company: contact.company || "—",
+    title: contact.title || "—",
+    phone: contact.phone || "—",
+    email: contact.email || "—",
+    city: contact.city || "—",
+    status: contact.status || "Lead",
+    source: contact.source || "—",
+    owner: owner ? owner.name : "—",
+    ownerInitials: getInitials(owner ? owner.name : ""),
+    lastContact,
+  };
+}
 
 const STATUS_OPTIONS = ["Lead", "Prospect", "Customer"];
-const LEAD_SOURCES = ["Website", "Referral", "Cold Call", "LinkedIn", "Event/Trade Show"];
-const OWNERS = [
-  { name: "Priya Nair", initials: "PN" },
-  { name: "Vikram Joshi", initials: "VJ" },
-  { name: "Meena Reddy", initials: "MR" },
-  { name: "Aditya Kumar", initials: "AK" },
-  { name: "Kavya Shah", initials: "KS" },
-];
+const LEAD_SOURCES = ["Website", "Referral", "Cold Call", "LinkedIn", "Event/Trade Show", "Partner", "Email Campaign", "Other"];
 
 const STATUS_STYLES = {
   Customer: "bg-emerald-100 text-emerald-700",
@@ -41,15 +66,9 @@ const SOURCE_STYLES = {
   "Cold Call": "bg-amber-100 text-amber-700",
   "Event/Trade Show": "bg-violet-100 text-violet-700",
   LinkedIn: "bg-blue-100 text-blue-700",
+  Partner: "bg-emerald-100 text-emerald-700",
+  Other: "bg-gray-100 text-gray-700",
 };
-
-const INITIAL_CONTACTS = [
-  { id: 1, name: "Suresh Rajan", initials: "SR", company: "TechNova Pvt Ltd", title: "CTO", phone: "9876543210", email: "suresh@technova.com", city: "Bangalore", status: "Customer", source: "Referral", owner: "Vikram Joshi", ownerInitials: "VJ", lastContact: "2025-01-15" },
-  { id: 2, name: "Meena Joshi", initials: "MJ", company: "GreenPath Solutions", title: "CEO", phone: "9123456789", email: "meena@greenpath.in", city: "Mumbai", status: "Customer", source: "Website", owner: "Vikram Joshi", ownerInitials: "VJ", lastContact: "2025-01-18" },
-  { id: 3, name: "Deepak Verma", initials: "DV", company: "Horizon Retail Co", title: "VP Operations", phone: "9988776655", email: "deepak@horizon.co", city: "Delhi", status: "Prospect", source: "Cold Call", owner: "Meena Reddy", ownerInitials: "MR", lastContact: "2025-02-01" },
-  { id: 4, name: "Priya Nair", initials: "PN", company: "CloudSoft India", title: "Director", phone: "9011223344", email: "priya@cloudsoft.io", city: "Hyderabad", status: "Prospect", source: "Event/Trade Show", owner: "Meena Reddy", ownerInitials: "MR", lastContact: "2025-02-05" },
-  { id: 5, name: "Arun Krishnan", initials: "AK", company: "MediCore India", title: "CFO", phone: "9654321870", email: "arun@medicore.in", city: "Ahmedabad", status: "Lead", source: "LinkedIn", owner: "Aditya Kumar", ownerInitials: "AK", lastContact: "2025-02-10" },
-];
 
 const initialContactForm = {
   firstName: "",
@@ -62,14 +81,20 @@ const initialContactForm = {
   country: "India",
   status: "Lead",
   leadSource: "Website",
-  owner: "Priya Nair",
+  assignedTo: "",
   lastContactDate: "",
   tags: "",
   notes: "",
 };
 
 export default function AdminContactsPage() {
-  const [contacts, setContacts] = useState(INITIAL_CONTACTS);
+  const navigate = useNavigate();
+  const storedUser = getStoredUser();
+  const adminUser = storedUser ? { name: storedUser.name || "Admin", role: storedUser.role || "Admin", email: storedUser.email || "", initials: getInitials(storedUser.name) } : { name: "Admin", role: "Admin", email: "", initials: "AD" };
+
+  const [contacts, setContacts] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -78,6 +103,47 @@ export default function AdminContactsPage() {
   const [viewingContact, setViewingContact] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+
+  useEffect(() => {
+    if (!getToken()) {
+      toast.info("Please log in to manage contacts.");
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    let cancelled = false;
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [contactsRes, usersRes] = await Promise.all([
+          apiRequest("/api/v1/contacts?page=1&limit=200"),
+          apiRequest("/api/v1/admin/users").catch((e) => {
+            if (e?.status === 401) throw e;
+            return { users: [] };
+          }),
+        ]);
+        if (cancelled) return;
+        setContacts((contactsRes.contacts || []).map((c) => mapContactToRow(c)));
+        setUsers(usersRes.users || []);
+      } catch (err) {
+        if (cancelled) return;
+        if (err?.status === 401) {
+          clearAuth();
+          toast.error("Session expired. Please log in again.");
+          navigate("/login", { replace: true });
+          return;
+        }
+        toast.error(err.message || "Failed to load contacts");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -104,9 +170,20 @@ export default function AdminContactsPage() {
     leads: contacts.filter((c) => c.status === "Lead").length,
   };
 
-  const handleDelete = (id) => {
-    setContacts((prev) => prev.filter((c) => c.id !== id));
-    toast.success("Contact deleted");
+  const handleDelete = async (id) => {
+    try {
+      await apiRequest(`/api/v1/contacts/${id}`, { method: "DELETE" });
+      setContacts((prev) => prev.filter((c) => c.id !== id));
+      toast.success("Contact deleted");
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to delete contact");
+    }
   };
 
   const openEditContact = (row) => {
@@ -114,16 +191,16 @@ export default function AdminContactsPage() {
     setContactForm({
       firstName: parts[0] || "",
       lastName: parts.slice(1).join(" ") || "",
-      company: row.company || "",
-      jobTitle: row.title || "",
-      phone: row.phone || "",
-      email: row.email || "",
-      city: row.city || "",
+      company: row.company === "—" ? "" : row.company,
+      jobTitle: row.title === "—" ? "" : row.title,
+      phone: row.phone === "—" ? "" : row.phone,
+      email: row.email === "—" ? "" : row.email,
+      city: row.city === "—" ? "" : row.city,
       country: "India",
       status: row.status || "Lead",
-      leadSource: row.source || "Website",
-      owner: row.owner || OWNERS[0]?.name || "",
-      lastContactDate: row.lastContact ? row.lastContact.split("-").reverse().join("-") : "",
+      leadSource: row.source === "—" ? "Website" : row.source,
+      assignedTo: row.ownerId || (users[0] && (users[0].id || users[0]._id)) || "",
+      lastContactDate: row.lastContact && row.lastContact !== "—" ? row.lastContact.split("-").reverse().join("-") : "",
       tags: "",
       notes: "",
     });
@@ -137,17 +214,17 @@ export default function AdminContactsPage() {
     setContactForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const getInitials = (first, last) => {
-    const a = (first || "").trim().slice(0, 1).toUpperCase();
-    const b = (last || "").trim().slice(0, 1).toUpperCase();
-    return (a + b) || "—";
-  };
-
-  const handleSaveContact = () => {
-    const { firstName, lastName, company, jobTitle, phone, email, city, status, leadSource, owner, lastContactDate } = contactForm;
-    if (!firstName.trim() || !lastName.trim() || !phone.trim()) return;
-    const ownerEntry = OWNERS.find((o) => o.name === owner) || OWNERS[0];
-    const name = `${firstName.trim()} ${lastName.trim()}`;
+  const handleSaveContact = async () => {
+    const { firstName, lastName, company, jobTitle, phone, email, city, country, status, leadSource, assignedTo, lastContactDate, tags, notes } = contactForm;
+    if (!firstName.trim() || !lastName.trim() || !phone.trim()) {
+      toast.error("First name, last name and phone are required");
+      return;
+    }
+    const ownerId = assignedTo || (users[0] && (users[0].id || users[0]._id));
+    if (!ownerId && !editingContact) {
+      toast.error("Please assign an owner (ensure users are loaded).");
+      return;
+    }
     let lastContact = lastContactDate;
     if (lastContact && /^\d{2}-\d{2}-\d{4}$/.test(lastContact)) {
       const [d, m, y] = lastContact.split("-");
@@ -155,29 +232,45 @@ export default function AdminContactsPage() {
     }
     if (!lastContact) lastContact = new Date().toISOString().slice(0, 10);
     const payload = {
-      name,
-      initials: getInitials(firstName, lastName),
-      company: company.trim() || "—",
-      title: jobTitle.trim() || "—",
+      fname: firstName.trim(),
+      lname: lastName.trim(),
+      company: company.trim() || undefined,
+      title: jobTitle.trim() || undefined,
       phone: phone.trim(),
-      email: email.trim() || "—",
-      city: city.trim() || "—",
-      status,
+      email: email.trim() || undefined,
+      city: city.trim() || undefined,
+      country: (country && country.trim()) || "India",
       source: leadSource,
-      owner: ownerEntry.name,
-      ownerInitials: ownerEntry.initials,
-      lastContact,
+      status: status || "Lead",
+      tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
+      notes: notes.trim() || undefined,
+      lastContact: lastContact || undefined,
+      owner: ownerId,
     };
-    if (editingContact) {
-      setContacts((prev) => prev.map((c) => (c.id === editingContact.id ? { ...payload, id: c.id } : c)));
+    try {
+      if (editingContact) {
+        const res = await apiRequest(`/api/v1/contacts/${editingContact.id}`, { method: "PUT", body: payload });
+        const updated = mapContactToRow({ ...res.contact, _id: res.contact._id, owner: res.contact.owner }, users);
+        setContacts((prev) => prev.map((c) => (c.id === editingContact.id ? updated : c)));
+        toast.success("Contact updated successfully");
+      } else {
+        const res = await apiRequest("/api/v1/contacts", { method: "POST", body: payload });
+        const created = mapContactToRow({ ...res.contact, _id: res.contact._id, owner: res.contact.owner }, users);
+        setContacts((prev) => [created, ...prev]);
+        toast.success("Contact added successfully");
+      }
+      setContactForm(initialContactForm);
       setEditingContact(null);
-      toast.success("Contact updated successfully");
-    } else {
-      setContacts((prev) => [{ ...payload, id: Math.max(0, ...contacts.map((c) => c.id)) + 1 }, ...prev]);
-      toast.success("Contact added successfully");
+      setAddModalOpen(false);
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to save contact");
     }
-    setContactForm(initialContactForm);
-    setAddModalOpen(false);
   };
 
   const closeAddModal = () => {
@@ -221,17 +314,17 @@ export default function AdminContactsPage() {
           </button>
           <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
             <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
-              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{ADMIN_USER.initials}</div>
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{adminUser.initials}</div>
             </button>
             {profileOpen && (
               <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
                 <div className="px-4 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{ADMIN_USER.initials}</div>
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{adminUser.initials}</div>
                     <div className="min-w-0">
-                      <p className="font-bold text-black truncate">{ADMIN_USER.name}</p>
-                      <p className="text-xs font-medium text-black/70">{ADMIN_USER.role}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{ADMIN_USER.email}</p>
+                      <p className="font-bold text-black truncate">{adminUser.name}</p>
+                      <p className="text-xs font-medium text-black/70">{adminUser.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{adminUser.email}</p>
                     </div>
                   </div>
                 </div>
@@ -240,7 +333,7 @@ export default function AdminContactsPage() {
                     <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
                     My Profile
                   </button>
-                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
+                  <button type="button" onClick={() => { clearAuth(); navigate("/login"); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
                     <LogOut className="w-4 h-4" strokeWidth={2} />
                     Log out
                   </button>
@@ -332,6 +425,10 @@ export default function AdminContactsPage() {
             </div>
           </div>
 
+          {loading ? (
+            <div className="py-12 text-center text-body text-sm">Loading contacts…</div>
+          ) : (
+          <React.Fragment>
           <div className="overflow-x-auto">
             <table className="w-max min-w-[1000px] text-sm table-fixed">
               <thead>
@@ -421,6 +518,8 @@ export default function AdminContactsPage() {
           </div>
           {filtered.length === 0 && (
             <div className="py-12 text-center text-body text-sm">No contacts match your filters.</div>
+          )}
+          </React.Fragment>
           )}
         </div>
       </div>
@@ -551,12 +650,13 @@ export default function AdminContactsPage() {
                 <div>
                   <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Owner</label>
                   <select
-                    value={contactForm.owner}
-                    onChange={(e) => handleContactFormChange("owner", e.target.value)}
+                    value={contactForm.assignedTo}
+                    onChange={(e) => handleContactFormChange("assignedTo", e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                   >
-                    {OWNERS.map((o) => (
-                      <option key={o.initials} value={o.name}>{o.name}</option>
+                    <option value="">Select owner</option>
+                    {users.map((u) => (
+                      <option key={u.id || u._id} value={u.id || u._id}>{u.name || u.email || u.id}</option>
                     ))}
                   </select>
                 </div>

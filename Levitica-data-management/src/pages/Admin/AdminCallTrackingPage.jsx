@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   Bell,
@@ -17,20 +18,37 @@ import {
   User,
   LogOut,
 } from "lucide-react";
+import { apiRequest, getStoredUser, getToken, clearAuth } from "../../utils/api";
 
-const ADMIN_USER = { name: "Arjun Kapoor", role: "Admin", email: "admin@levitica.com", initials: "AK" };
+function getInitials(name) {
+  if (!name || typeof name !== "string") return "—";
+  return name.trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+}
 
-const ACTIVITY_TYPES = ["Call", "Email", "Meeting"];
-const CALL_OUTCOMES = ["—", "Voicemail", "Connected - Interested", "Callback Requested", "No Answer", "Other"];
-const REPS = [
-  { name: "Priya Nair", initials: "PN" },
-  { name: "Vikram Joshi", initials: "VJ" },
-  { name: "Meena Reddy", initials: "MR" },
-  { name: "Aditya Kumar", initials: "AK" },
-  { name: "Kavya Shah", initials: "KS" },
-];
-const LINKED_DEALS = ["— None —", "TechNova Enterprise License", "GreenPath Consulting Module", "Horizon Retail Integration", "MediCore Healthcare Module", "EduLeap Education Suite", "FinPlex SaaS Starter"];
-const LINKED_CONTACTS = ["— None —", "Suresh Rajan", "Meena Joshi", "Deepak Verma", "Priya Nair", "Arun Krishnan"];
+/** Map backend activity (Call) to row. */
+function mapCallToRow(act) {
+  const rep = act.rep && typeof act.rep === "object" ? act.rep : null;
+  const deal = act.dealId && typeof act.dealId === "object" ? act.dealId : null;
+  const dateStr = act.date ? new Date(act.date).toISOString().slice(0, 10) : "—";
+  const durationDisplay = act.duration ? `${act.duration}min` : "";
+  return {
+    id: act._id,
+    date: dateStr,
+    subject: act.subject || "—",
+    company: act.company || "—",
+    outcome: act.outcome || "—",
+    duration: durationDisplay,
+    rep: rep ? rep.name : "—",
+    repInitials: getInitials(rep ? rep.name : ""),
+    repId: rep ? (rep._id || rep.id) : null,
+    deal: deal ? deal.title : "—",
+    dealId: deal ? (deal._id || deal.id) : null,
+    notes: act.notes || "—",
+    recording: act.recording || "None",
+  };
+}
+
+const CALL_OUTCOMES = ["", "Voicemail", "Connected - Interested", "Callback Requested", "No Answer", "Connected - Not Interested", "Wrong Number", "Follow-up Scheduled"];
 const FOLLOW_UP_TYPES = ["Call", "Email", "Meeting", "Follow-up"];
 
 const OUTCOME_STYLES = {
@@ -38,24 +56,17 @@ const OUTCOME_STYLES = {
   "Callback Requested": "bg-blue-100 text-blue-700",
   "Connected - Interested": "bg-emerald-100 text-emerald-700",
   "No Answer": "bg-red-100 text-red-700",
+  "Connected - Not Interested": "bg-gray-100 text-gray-700",
 };
 
-const INITIAL_CALLS = [
-  { id: 1, date: "2025-02-15", subject: "Follow-up - GreenPath", company: "GreenPath Solutions", outcome: "Voicemail", duration: "", rep: "Meena Reddy", repInitials: "MR", deal: "GreenPath Consulting Module", notes: "Left voicemail. Will try again tomorrow.", recording: "None" },
-  { id: 2, date: "2025-02-10", subject: "Negotiation Call - Horizon", company: "Horizon Retail Co", outcome: "Callback Requested", duration: "18min", rep: "Vikram Joshi", repInitials: "VJ", deal: "Horizon Retail Integration", notes: "Discussed 10% volume discount. Sending revised proposal.", recording: "None" },
-  { id: 3, date: "2025-01-15", subject: "Initial Discovery Call", company: "TechNova Pvt Ltd", outcome: "Connected - Interested", duration: "25min", rep: "Vikram Joshi", repInitials: "VJ", deal: "TechNova Enterprise License", notes: "Client interested in enterprise plan. Demo scheduled.", recording: "None" },
-];
-
 const initialLogForm = {
-  activityType: "Call",
   date: "",
   subject: "",
   company: "",
   duration: "0",
-  callOutcome: "—",
-  rep: "Priya Nair",
-  linkedDeal: "— None —",
-  linkedContact: "— None —",
+  callOutcome: "",
+  assignedRep: "",
+  linkedDealId: "",
   callRecording: "",
   notes: "",
   scheduleFollowUp: "",
@@ -63,7 +74,14 @@ const initialLogForm = {
 };
 
 export default function AdminCallTrackingPage() {
-  const [calls, setCalls] = useState(INITIAL_CALLS);
+  const navigate = useNavigate();
+  const storedUser = getStoredUser();
+  const adminUser = storedUser ? { name: storedUser.name || "Admin", role: storedUser.role || "Admin", email: storedUser.email || "", initials: getInitials(storedUser.name) } : { name: "Admin", role: "Admin", email: "", initials: "AD" };
+
+  const [calls, setCalls] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [deals, setDeals] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState("All Outcomes");
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -71,6 +89,46 @@ export default function AdminCallTrackingPage() {
   const [editingCall, setEditingCall] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+
+  useEffect(() => {
+    if (!getToken()) {
+      toast.info("Please log in to manage call logs.");
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    let cancelled = false;
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [callsRes, usersRes, dealsRes] = await Promise.all([
+          apiRequest("/api/v1/activities/calls"),
+          apiRequest("/api/v1/admin/users").catch((e) => { if (e?.status === 401) throw e; return { users: [] }; }),
+          apiRequest("/api/v1/deals?page=1&limit=200").catch(() => ({ deals: [] })),
+        ]);
+        if (cancelled) return;
+        setCalls((callsRes.activities || []).map(mapCallToRow));
+        setUsers(usersRes.users || []);
+        setDeals(dealsRes.deals || []);
+      } catch (err) {
+        if (cancelled) return;
+        if (err?.status === 401) {
+          clearAuth();
+          toast.error("Session expired. Please log in again.");
+          navigate("/login", { replace: true });
+          return;
+        }
+        toast.error(err.message || "Failed to load calls");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -86,7 +144,7 @@ export default function AdminCallTrackingPage() {
       row.subject.toLowerCase().includes(search.toLowerCase()) ||
       row.company.toLowerCase().includes(search.toLowerCase()) ||
       row.deal.toLowerCase().includes(search.toLowerCase());
-    const matchOutcome = outcomeFilter === "All Outcomes" || row.outcome === outcomeFilter;
+    const matchOutcome = outcomeFilter === "All Outcomes" || (outcomeFilter === "—" ? (row.outcome === "—" || !row.outcome) : row.outcome === outcomeFilter);
     return matchSearch && matchOutcome;
   });
 
@@ -96,24 +154,33 @@ export default function AdminCallTrackingPage() {
   const withRecording = calls.filter((c) => c.recording && c.recording !== "None").length;
   const connectRate = calls.length ? Math.round((connectedCount / calls.length) * 100) : 0;
 
-  const handleDelete = (id) => {
-    setCalls((prev) => prev.filter((c) => c.id !== id));
-    toast.success("Call log deleted");
+  const handleDelete = async (id) => {
+    try {
+      await apiRequest(`/api/v1/activities/${id}`, { method: "DELETE" });
+      setCalls((prev) => prev.filter((c) => c.id !== id));
+      toast.success("Call log deleted");
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to delete call");
+    }
   };
 
   const openEditCall = (row) => {
     setLogForm({
-      activityType: "Call",
-      date: row.date ? row.date.split("-").reverse().join("-") : "",
-      subject: row.subject || "",
-      company: row.company || "",
-      duration: row.duration || "0",
-      callOutcome: row.outcome || "—",
-      rep: row.rep || "Priya Nair",
-      linkedDeal: row.deal === "—" ? "— None —" : row.deal || "— None —",
-      linkedContact: "— None —",
-      callRecording: row.recording || "",
-      notes: row.notes || "",
+      date: row.date && row.date !== "—" ? row.date : "",
+      subject: row.subject === "—" ? "" : row.subject,
+      company: row.company === "—" ? "" : row.company,
+      duration: row.duration ? String(row.duration).replace("min", "") : "0",
+      callOutcome: row.outcome === "—" ? "" : row.outcome,
+      assignedRep: row.repId || (users[0] && (users[0].id || users[0]._id)) || "",
+      linkedDealId: row.dealId || "",
+      callRecording: row.recording === "None" ? "" : row.recording,
+      notes: row.notes === "—" ? "" : row.notes,
       scheduleFollowUp: "",
       followUpType: "Call",
     });
@@ -131,36 +198,53 @@ export default function AdminCallTrackingPage() {
     setLogForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveLog = () => {
-    const { activityType, date, subject, company, duration, callOutcome, rep, linkedDeal, callRecording, notes } = logForm;
-    if (!subject.trim() || !notes.trim()) return;
-    const repEntry = REPS.find((r) => r.name === rep) || REPS[0];
-    const callDate = toYyyyMmDd(date) || new Date().toISOString().slice(0, 10);
-    const deal = linkedDeal === "— None —" ? "—" : linkedDeal;
-    const outcome = callOutcome === "—" ? "" : callOutcome;
-    const durationDisplay = duration && duration !== "0" ? `${duration}min` : "";
-    const payload = {
-      date: callDate,
-      subject: subject.trim(),
-      company: company.trim() || "—",
-      outcome: outcome || "—",
-      duration: durationDisplay,
-      rep: repEntry.name,
-      repInitials: repEntry.initials,
-      deal: deal || "—",
-      notes: notes.trim(),
-      recording: callRecording.trim() || "None",
-    };
-    if (editingCall) {
-      setCalls((prev) => prev.map((c) => (c.id === editingCall.id ? { ...payload, id: c.id } : c)));
-      setEditingCall(null);
-      toast.success("Call log updated successfully");
-    } else {
-      setCalls((prev) => [{ ...payload, id: Math.max(0, ...calls.map((c) => c.id)) + 1 }, ...prev]);
-      toast.success("Call log added successfully");
+  const handleSaveLog = async () => {
+    const { date, subject, company, duration, callOutcome, assignedRep, linkedDealId, callRecording, notes } = logForm;
+    if (!subject.trim() || !notes.trim()) {
+      toast.error("Subject and notes are required");
+      return;
     }
-    setLogForm(initialLogForm);
-    setAddModalOpen(false);
+    const repId = assignedRep || (users[0] && (users[0].id || users[0]._id));
+    if (!repId) {
+      toast.error("Please assign a rep.");
+      return;
+    }
+    const callDate = toYyyyMmDd(date) || new Date().toISOString().slice(0, 10);
+    const durationNum = parseInt(String(duration).replace(/\D/g, ""), 10) || 0;
+    const payload = {
+      type: "Call",
+      subject: subject.trim(),
+      notes: notes.trim(),
+      date: callDate,
+      duration: durationNum,
+      outcome: callOutcome || undefined,
+      company: company.trim() || undefined,
+      recording: callRecording.trim() || undefined,
+      rep: repId,
+      dealId: linkedDealId || undefined,
+    };
+    try {
+      if (editingCall) {
+        const res = await apiRequest(`/api/v1/activities/${editingCall.id}`, { method: "PUT", body: payload });
+        setCalls((prev) => prev.map((c) => (c.id === editingCall.id ? mapCallToRow(res.activity) : c)));
+        toast.success("Call log updated successfully");
+      } else {
+        const res = await apiRequest("/api/v1/activities", { method: "POST", body: payload });
+        setCalls((prev) => [mapCallToRow(res.activity), ...prev]);
+        toast.success("Call log added successfully");
+      }
+      setLogForm(initialLogForm);
+      setEditingCall(null);
+      setAddModalOpen(false);
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to save call");
+    }
   };
 
   const closeAddModal = () => {
@@ -204,17 +288,17 @@ export default function AdminCallTrackingPage() {
           </button>
           <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
             <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
-              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{ADMIN_USER.initials}</div>
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{adminUser.initials}</div>
             </button>
             {profileOpen && (
               <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
                 <div className="px-4 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{ADMIN_USER.initials}</div>
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{adminUser.initials}</div>
                     <div className="min-w-0">
-                      <p className="font-bold text-black truncate">{ADMIN_USER.name}</p>
-                      <p className="text-xs font-medium text-black/70">{ADMIN_USER.role}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{ADMIN_USER.email}</p>
+                      <p className="font-bold text-black truncate">{adminUser.name}</p>
+                      <p className="text-xs font-medium text-black/70">{adminUser.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{adminUser.email}</p>
                     </div>
                   </div>
                 </div>
@@ -223,7 +307,7 @@ export default function AdminCallTrackingPage() {
                     <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
                     My Profile
                   </button>
-                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
+                  <button type="button" onClick={() => { clearAuth(); navigate("/login"); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
                     <LogOut className="w-4 h-4" strokeWidth={2} />
                     Log out
                   </button>
@@ -340,6 +424,10 @@ export default function AdminCallTrackingPage() {
             </div>
           </div>
 
+          {loading ? (
+            <div className="py-12 text-center text-body text-sm">Loading calls…</div>
+          ) : (
+          <React.Fragment>
           <div className="overflow-x-auto">
             <table className="w-max min-w-[1000px] text-sm table-fixed">
               <thead>
@@ -411,6 +499,8 @@ export default function AdminCallTrackingPage() {
           {filtered.length === 0 && (
             <div className="py-12 text-center text-body text-sm">No calls match your filters.</div>
           )}
+          </React.Fragment>
+          )}
         </div>
       </div>
 
@@ -435,18 +525,6 @@ export default function AdminCallTrackingPage() {
               <div>
                 <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-4 border-b border-brand/30 pb-2">Activity Details</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Activity type *</label>
-                    <select
-                      value={logForm.activityType}
-                      onChange={(e) => handleLogFormChange("activityType", e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
-                    >
-                      {ACTIVITY_TYPES.map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
-                  </div>
                   <div>
                     <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Date *</label>
                     <div className="relative">
@@ -497,7 +575,8 @@ export default function AdminCallTrackingPage() {
                       onChange={(e) => handleLogFormChange("callOutcome", e.target.value)}
                       className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                     >
-                      {CALL_OUTCOMES.map((opt) => (
+                      <option value="">—</option>
+                      {CALL_OUTCOMES.filter(Boolean).map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
                       ))}
                     </select>
@@ -505,36 +584,26 @@ export default function AdminCallTrackingPage() {
                   <div>
                     <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Rep</label>
                     <select
-                      value={logForm.rep}
-                      onChange={(e) => handleLogFormChange("rep", e.target.value)}
+                      value={logForm.assignedRep}
+                      onChange={(e) => handleLogFormChange("assignedRep", e.target.value)}
                       className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                     >
-                      {REPS.map((r) => (
-                        <option key={r.initials} value={r.name}>{r.name}</option>
+                      <option value="">Select rep</option>
+                      {users.map((u) => (
+                        <option key={u.id || u._id} value={u.id || u._id}>{u.name || u.email || u.id}</option>
                       ))}
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Linked deal</label>
                     <select
-                      value={logForm.linkedDeal}
-                      onChange={(e) => handleLogFormChange("linkedDeal", e.target.value)}
+                      value={logForm.linkedDealId}
+                      onChange={(e) => handleLogFormChange("linkedDealId", e.target.value)}
                       className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                     >
-                      {LINKED_DEALS.map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Linked contact</label>
-                    <select
-                      value={logForm.linkedContact}
-                      onChange={(e) => handleLogFormChange("linkedContact", e.target.value)}
-                      className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
-                    >
-                      {LINKED_CONTACTS.map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
+                      <option value="">— None —</option>
+                      {deals.map((d) => (
+                        <option key={d._id || d.id} value={d._id || d.id}>{d.title || d.company || d._id}</option>
                       ))}
                     </select>
                   </div>

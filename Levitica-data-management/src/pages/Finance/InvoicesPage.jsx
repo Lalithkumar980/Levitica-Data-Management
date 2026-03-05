@@ -1,11 +1,37 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import { Bell, FileText, Plus, Download, Pencil, X, Save, Wallet, Clock, AlertCircle, Hash, User, LogOut } from "lucide-react";
+import { apiRequest, getStoredUser, getToken, clearAuth } from "../../utils/api";
 
 const inputClass = "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
 const labelClass = "block text-xs font-medium text-body uppercase tracking-wider mb-1.5";
 
 const formatINR = (n) => (n == null || isNaN(n) ? "0" : "₹" + Number(n).toLocaleString("en-IN"));
 const parseINR = (str) => parseFloat(String(str ?? "").replace(/[₹,\s]/g, "")) || 0;
+
+function getInitials(name) {
+  if (!name || typeof name !== "string") return "—";
+  return name.trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+}
+
+function toISODate(s) {
+  if (!s || s === "-") return undefined;
+  const parts = String(s).trim().split(/[-/]/);
+  if (parts.length === 3) {
+    const [a, b, c] = parts;
+    if (a.length === 4) return `${a}-${b.padStart(2, "0")}-${c.padStart(2, "0")}`;
+    return `${c}-${b.padStart(2, "0")}-${a.padStart(2, "0")}`;
+  }
+  return s;
+}
+
+function formatDate(v) {
+  if (v == null || v === "" || v === "-") return "-";
+  const d = typeof v === "string" ? new Date(v) : v;
+  if (isNaN(d.getTime())) return "-";
+  return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
+}
 
 const getDefaultForm = (todayStr) => ({
   invoiceNumber: "INV-" + Math.floor(100000 + Math.random() * 900000),
@@ -33,19 +59,19 @@ function NewInvoiceModal({ open, onClose, onSave, invoice: editingInvoice }) {
   useEffect(() => {
     if (!open) return;
     if (editingInvoice) {
-      const base = parseINR(editingInvoice.baseAmount);
+      const base = typeof editingInvoice.baseAmount === "number" ? editingInvoice.baseAmount : parseINR(editingInvoice.baseAmount);
       setForm({
         invoiceNumber: editingInvoice.invoiceNo,
         client: editingInvoice.client,
-        type: editingInvoice.type,
+        type: editingInvoice.type || "Company",
         category: "Revenue",
         baseAmount: base > 0 ? String(base) : "",
-        status: editingInvoice.status,
-        paymentMethod: editingInvoice.method === "-" ? "" : editingInvoice.method,
-        invoiceDate: editingInvoice.invoiceDate === "-" ? todayStr : editingInvoice.invoiceDate,
-        dueDate: editingInvoice.dueDate === "-" ? "" : editingInvoice.dueDate,
-        paidDate: editingInvoice.paidDate === "-" ? "" : editingInvoice.paidDate,
-        description: editingInvoice.description === "-" ? "" : editingInvoice.description,
+        status: editingInvoice.status || "Pending",
+        paymentMethod: (editingInvoice.paymentMethod || editingInvoice.method) === "-" || !(editingInvoice.paymentMethod || editingInvoice.method) ? "" : (editingInvoice.paymentMethod || editingInvoice.method),
+        invoiceDate: !editingInvoice.invoiceDate || editingInvoice.invoiceDate === "-" ? todayStr : formatDate(editingInvoice.invoiceDate),
+        dueDate: !editingInvoice.dueDate || editingInvoice.dueDate === "-" ? "" : formatDate(editingInvoice.dueDate),
+        paidDate: !editingInvoice.paidDate || editingInvoice.paidDate === "-" ? "" : formatDate(editingInvoice.paidDate),
+        description: !editingInvoice.description || editingInvoice.description === "-" ? "" : editingInvoice.description,
       });
     } else {
       setForm(getDefaultForm(todayStr));
@@ -66,17 +92,18 @@ function NewInvoiceModal({ open, onClose, onSave, invoice: editingInvoice }) {
     if (!form.client?.trim()) return;
     const base = baseNum;
     const gst = gstNum;
-    const total = totalNum;
+    const total = base + gst;
     const payload = {
-      id: editingInvoice ? editingInvoice.id : Date.now(),
+      id: editingInvoice ? (editingInvoice._id || editingInvoice.id) : null,
       invoiceNo: form.invoiceNumber,
       client: form.client.trim(),
       type: form.type,
-      baseAmount: formatINR(base),
-      gst: formatINR(gst),
-      total: formatINR(total),
+      baseAmount: base,
+      gst,
+      total,
       status: form.status,
       method: form.paymentMethod || "-",
+      paymentMethod: form.paymentMethod || "",
       invoiceDate: form.invoiceDate || "-",
       dueDate: form.dueDate || "-",
       paidDate: form.paidDate || "-",
@@ -210,24 +237,35 @@ const TYPE_STYLES = {
   Training: "bg-brand-soft text-brand",
 };
 
-const INITIAL_INVOICES = [
-  { id: 1, invoiceNo: "IV-2025-001", client: "MediCore India", type: "Company", baseAmount: "₹6,50,000", gst: "₹1,53,600", total: "₹10,03,000", status: "Paid", method: "Bank Transfer", invoiceDate: "2025-01-28", dueDate: "2025-01-31", paidDate: "2025-01-23", description: "Consulting services Q1" },
-  { id: 2, invoiceNo: "IV-2025-002", client: "Dev Mahajan & Co", type: "Training", baseAmount: "₹2,50,000", gst: "₹45,000", total: "₹2,95,000", status: "Paid", method: "UPI", invoiceDate: "2025-01-15", dueDate: "2025-01-25", paidDate: "2025-01-20", description: "Training batch Jan 2025" },
-  { id: 3, invoiceNo: "IV-2025-003", client: "Ratul MaxGroup", type: "Company", baseAmount: "₹1,80,000", gst: "₹32,400", total: "₹2,12,400", status: "Pending", method: "-", invoiceDate: "2025-02-01", dueDate: "2025-02-15", paidDate: "-", description: "Annual retainer" },
-  { id: 4, invoiceNo: "IV-2025-004", client: "Lata Krishnan", type: "Training", baseAmount: "₹1,20,000", gst: "₹21,600", total: "₹1,41,600", status: "Overdue", method: "-", invoiceDate: "2025-01-20", dueDate: "2025-02-05", paidDate: "-", description: "Certification program" },
-  { id: 5, invoiceNo: "IV-2025-005", client: "TechNova Solutions", type: "Company", baseAmount: "₹4,00,000", gst: "₹72,000", total: "₹4,72,000", status: "Partial", method: "Credit Card", invoiceDate: "2025-02-10", dueDate: "2025-02-28", paidDate: "2025-02-12", description: "Implementation Phase 1" },
-  { id: 6, invoiceNo: "IV-2025-006", client: "EduLearn Pvt Ltd", type: "Training", baseAmount: "₹3,00,000", gst: "₹54,000", total: "₹3,54,000", status: "Paid", method: "Bank Transfer", invoiceDate: "2025-02-05", dueDate: "2025-02-20", paidDate: "2025-02-18", description: "Corporate training" },
-];
-
-const USER_PROFILE = {
-  name: "Suresh Agarwal",
-  role: "Finance Manager",
-  email: "suresh.agarwal@company.com",
-  initials: "SA",
-};
+function invoiceToRow(doc) {
+  const totalNum = doc.total != null ? Number(doc.total) : 0;
+  return {
+    _id: doc._id,
+    id: doc._id,
+    invoiceNo: doc.invoiceNo,
+    client: doc.client,
+    type: doc.type || "Company",
+    baseAmount: formatINR(doc.baseAmount),
+    gst: formatINR(doc.gst),
+    total: formatINR(doc.total),
+    totalNum,
+    status: doc.status || "Pending",
+    method: doc.paymentMethod || "-",
+    paymentMethod: doc.paymentMethod,
+    invoiceDate: doc.invoiceDate ? formatDate(doc.invoiceDate) : "-",
+    dueDate: doc.dueDate ? formatDate(doc.dueDate) : "-",
+    paidDate: doc.paidDate ? formatDate(doc.paidDate) : "-",
+    description: doc.description || "-",
+  };
+}
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState(INITIAL_INVOICES);
+  const navigate = useNavigate();
+  const storedUser = getStoredUser();
+  const currentUser = storedUser ? { name: storedUser.name || "User", role: storedUser.role || "Finance Management", email: storedUser.email || "", initials: getInitials(storedUser.name) } : { name: "User", role: "Finance Management", email: "", initials: "—" };
+
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [typeFilter, setTypeFilter] = useState("All Types");
@@ -235,6 +273,47 @@ export default function InvoicesPage() {
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+  const errorToastShownRef = useRef(false);
+
+  useEffect(() => {
+    if (!getToken()) {
+      toast.info("Please log in to view invoices.");
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  const fetchInvoices = async () => {
+    if (!getToken()) return;
+    errorToastShownRef.current = false;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page: "1", limit: "200" });
+      if (statusFilter !== "All Status") params.set("status", statusFilter);
+      if (typeFilter !== "All Types") params.set("type", typeFilter);
+      if (search.trim()) params.set("search", search.trim());
+      const res = await apiRequest(`/api/v1/finance/invoices?${params}`);
+      const items = (res.items || []).map(invoiceToRow);
+      setInvoices(items);
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (!errorToastShownRef.current) {
+        errorToastShownRef.current = true;
+        toast.error(err.message || "Failed to load invoices");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInvoices();
+  }, [statusFilter, typeFilter]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -247,12 +326,44 @@ export default function InvoicesPage() {
   const filtered = invoices.filter((row) => {
     const matchSearch =
       !search ||
-      row.client.toLowerCase().includes(search.toLowerCase()) ||
-      row.invoiceNo.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "All Status" || row.status === statusFilter;
-    const matchType = typeFilter === "All Types" || row.type === typeFilter;
-    return matchSearch && matchStatus && matchType;
+      (row.client && row.client.toLowerCase().includes(search.toLowerCase())) ||
+      (row.invoiceNo && row.invoiceNo.toLowerCase().includes(search.toLowerCase()));
+    return matchSearch;
   });
+
+  const handleSave = async (payload, isEdit) => {
+    try {
+      const body = {
+        invoiceNo: payload.invoiceNo,
+        client: payload.client,
+        type: payload.type || "Company",
+        category: "Revenue",
+        baseAmount: typeof payload.baseAmount === "number" ? payload.baseAmount : parseINR(String(payload.baseAmount)),
+        status: payload.status || "Pending",
+        paymentMethod: payload.paymentMethod || payload.method || "",
+        invoiceDate: toISODate(payload.invoiceDate),
+        dueDate: toISODate(payload.dueDate),
+        paidDate: toISODate(payload.paidDate),
+        description: payload.description === "-" ? "" : (payload.description || ""),
+      };
+      if (isEdit && payload.id) {
+        await apiRequest(`/api/v1/finance/invoices/${payload.id}`, { method: "PUT", body });
+        toast.success("Invoice updated.");
+      } else {
+        await apiRequest("/api/v1/finance/invoices", { method: "POST", body });
+        toast.success("Invoice created.");
+      }
+      fetchInvoices();
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to save invoice");
+    }
+  };
 
   const handleExport = () => {
     const escapeCsv = (val) => {
@@ -347,7 +458,7 @@ export default function InvoicesPage() {
               aria-haspopup="true"
             >
               <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
-                {USER_PROFILE.initials}
+                {currentUser.initials}
               </div>
             </button>
             {profileOpen && (
@@ -355,12 +466,12 @@ export default function InvoicesPage() {
                 <div className="px-4 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                      {USER_PROFILE.initials}
+                      {currentUser.initials}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-black truncate">{USER_PROFILE.name}</p>
-                      <p className="text-xs font-medium text-black/70">{USER_PROFILE.role}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{USER_PROFILE.email}</p>
+                      <p className="font-bold text-black truncate">{currentUser.name}</p>
+                      <p className="text-xs font-medium text-black/70">{currentUser.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{currentUser.email}</p>
                     </div>
                   </div>
                 </div>
@@ -374,7 +485,7 @@ export default function InvoicesPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => (window.location.href = "/")}
+                    onClick={() => { clearAuth(); navigate("/login"); }}
                     className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left"
                   >
                     <LogOut className="w-4 h-4" strokeWidth={2} />
@@ -390,98 +501,106 @@ export default function InvoicesPage() {
       <NewInvoiceModal
         open={showNewInvoiceModal}
         onClose={() => { setShowNewInvoiceModal(false); setEditingInvoice(null); }}
-        onSave={(inv, isEdit) => {
-          if (isEdit) {
-            setInvoices((prev) => prev.map((i) => (i.id === inv.id ? inv : i)));
-          } else {
-            setInvoices((prev) => [inv, ...prev]);
-          }
-        }}
+        onSave={handleSave}
         invoice={editingInvoice}
       />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
-        {/* Six stat cards – same style as HR DashboardOverview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Total Collected</p>
-                <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">₹22,24,300</p>
-                <p className="text-xs font-medium text-teal-700/80 mt-1.5">Collected</p>
-              </div>
-              <span className="w-12 h-12 rounded-xl bg-teal-200 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Wallet className="w-6 h-6 text-teal-700" strokeWidth={2} />
-              </span>
-            </div>
-          </div>
-          <div className="group rounded-2xl bg-amber-100 border-2 border-amber-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-1.5">Pending</p>
-                <p className="text-2xl font-bold text-amber-900 tabular-nums tracking-tight">₹3,06,800</p>
-                <p className="text-xs font-medium text-amber-700/80 mt-1.5">Awaiting payment</p>
-              </div>
-              <span className="w-12 h-12 rounded-xl bg-amber-200 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Clock className="w-6 h-6 text-amber-700" strokeWidth={2} />
-              </span>
-            </div>
-          </div>
-          <div className="group rounded-2xl bg-red-100 border-2 border-red-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[11px] font-bold text-red-800 uppercase tracking-wider mb-1.5">Overdue</p>
-                <p className="text-2xl font-bold text-red-900 tabular-nums tracking-tight">₹4,72,000</p>
-                <p className="text-xs font-medium text-red-700/80 mt-1.5">Past due</p>
-              </div>
-              <span className="w-12 h-12 rounded-xl bg-red-200 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <AlertCircle className="w-6 h-6 text-red-700" strokeWidth={2} />
-              </span>
-            </div>
-          </div>
-          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Total Invoiced</p>
-                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">₹30,03,100</p>
-                <p className="text-xs font-medium text-blue-700/80 mt-1.5">All time</p>
-              </div>
-              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <FileText className="w-6 h-6 text-blue-700" strokeWidth={2} />
-              </span>
-            </div>
-          </div>
-          <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Company Invoices</p>
-                <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">5</p>
-                <p className="text-xs font-medium text-teal-700/80 mt-1.5">Count</p>
-              </div>
-              <span className="w-12 h-12 rounded-xl bg-teal-200 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Hash className="w-6 h-6 text-teal-700" strokeWidth={2} />
-              </span>
-            </div>
-          </div>
-          <div className="group rounded-2xl bg-violet-100 border-2 border-violet-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[11px] font-bold text-violet-800 uppercase tracking-wider mb-1.5">Training Fees</p>
-                <p className="text-2xl font-bold text-violet-900 tabular-nums tracking-tight">5</p>
-                <p className="text-xs font-medium text-violet-700/80 mt-1.5">Count</p>
-              </div>
-              <span className="w-12 h-12 rounded-xl bg-violet-200 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <FileText className="w-6 h-6 text-violet-700" strokeWidth={2} />
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Collection rate */}
-        <div className="mb-6 flex items-center gap-3">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Collection Rate</span>
-          <span className="text-2xl font-bold text-success">74%</span>
-        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-body">Loading invoices…</div>
+        ) : (
+          <>
+            {(() => {
+              const totalCollected = filtered.filter((r) => r.status === "Paid").reduce((s, r) => s + (r.totalNum || 0), 0);
+              const pending = filtered.filter((r) => r.status === "Pending").reduce((s, r) => s + (r.totalNum || 0), 0);
+              const overdue = filtered.filter((r) => r.status === "Overdue").reduce((s, r) => s + (r.totalNum || 0), 0);
+              const totalInvoiced = filtered.reduce((s, r) => s + (r.totalNum || 0), 0);
+              const companyCount = filtered.filter((r) => r.type === "Company").length;
+              const trainingCount = filtered.filter((r) => r.type === "Training").length;
+              const collectionRate = totalInvoiced > 0 ? Math.round((totalCollected / totalInvoiced) * 100) : 0;
+              return (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Total Collected</p>
+                          <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">{formatINR(totalCollected)}</p>
+                          <p className="text-xs font-medium text-teal-700/80 mt-1.5">Collected</p>
+                        </div>
+                        <span className="w-12 h-12 rounded-xl bg-teal-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                          <Wallet className="w-6 h-6 text-teal-700" strokeWidth={2} />
+                        </span>
+                      </div>
+                    </div>
+                    <div className="group rounded-2xl bg-amber-100 border-2 border-amber-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-1.5">Pending</p>
+                          <p className="text-2xl font-bold text-amber-900 tabular-nums tracking-tight">{formatINR(pending)}</p>
+                          <p className="text-xs font-medium text-amber-700/80 mt-1.5">Awaiting payment</p>
+                        </div>
+                        <span className="w-12 h-12 rounded-xl bg-amber-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                          <Clock className="w-6 h-6 text-amber-700" strokeWidth={2} />
+                        </span>
+                      </div>
+                    </div>
+                    <div className="group rounded-2xl bg-red-100 border-2 border-red-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-[11px] font-bold text-red-800 uppercase tracking-wider mb-1.5">Overdue</p>
+                          <p className="text-2xl font-bold text-red-900 tabular-nums tracking-tight">{formatINR(overdue)}</p>
+                          <p className="text-xs font-medium text-red-700/80 mt-1.5">Past due</p>
+                        </div>
+                        <span className="w-12 h-12 rounded-xl bg-red-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                          <AlertCircle className="w-6 h-6 text-red-700" strokeWidth={2} />
+                        </span>
+                      </div>
+                    </div>
+                    <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Total Invoiced</p>
+                          <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">{formatINR(totalInvoiced)}</p>
+                          <p className="text-xs font-medium text-blue-700/80 mt-1.5">All time</p>
+                        </div>
+                        <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                          <FileText className="w-6 h-6 text-blue-700" strokeWidth={2} />
+                        </span>
+                      </div>
+                    </div>
+                    <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Company Invoices</p>
+                          <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">{companyCount}</p>
+                          <p className="text-xs font-medium text-teal-700/80 mt-1.5">Count</p>
+                        </div>
+                        <span className="w-12 h-12 rounded-xl bg-teal-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                          <Hash className="w-6 h-6 text-teal-700" strokeWidth={2} />
+                        </span>
+                      </div>
+                    </div>
+                    <div className="group rounded-2xl bg-violet-100 border-2 border-violet-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-[11px] font-bold text-violet-800 uppercase tracking-wider mb-1.5">Training Fees</p>
+                          <p className="text-2xl font-bold text-violet-900 tabular-nums tracking-tight">{trainingCount}</p>
+                          <p className="text-xs font-medium text-violet-700/80 mt-1.5">Count</p>
+                        </div>
+                        <span className="w-12 h-12 rounded-xl bg-violet-200 flex items-center justify-center group-hover:scale-105 transition-transform">
+                          <FileText className="w-6 h-6 text-violet-700" strokeWidth={2} />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mb-6 flex items-center gap-3">
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Collection Rate</span>
+                    <span className="text-2xl font-bold text-success">{collectionRate}%</span>
+                  </div>
+                </>
+              );
+            })()}
 
         {/* Invoice Ledger – same card header style as HR DashboardOverview */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -569,7 +688,7 @@ export default function InvoicesPage() {
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                  <tr key={row._id || row.id || idx} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
                     <td className="py-3 px-3 text-right text-body tabular-nums">{idx + 1}</td>
                     <td className="py-3 px-3 font-medium text-brand-dark whitespace-nowrap">{row.invoiceNo}</td>
                     <td className="py-3 px-3 text-body truncate" title={row.client}>{row.client}</td>
@@ -610,6 +729,8 @@ export default function InvoicesPage() {
             <div className="py-12 text-center text-body text-sm">No invoices match your filters.</div>
           )}
         </div>
+        </>
+        )}
       </div>
     </>
   );

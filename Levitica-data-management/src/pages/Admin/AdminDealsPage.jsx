@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   Bell,
@@ -20,19 +21,65 @@ import {
   User,
   LogOut,
 } from "lucide-react";
+import { apiRequest, getStoredUser, getToken, clearAuth } from "../../utils/api";
 
-const ADMIN_USER = { name: "Arjun Kapoor", role: "Admin", email: "admin@levitica.com", initials: "AK" };
+function getInitials(name) {
+  if (!name || typeof name !== "string") return "—";
+  return name.trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+}
+
+// Backend uses lowercase stages; UI uses display labels
+const STAGE_UI_TO_BACKEND = {
+  Lead: "lead",
+  Qualified: "qualified",
+  "Meeting/Demo": "meeting",
+  Negotiation: "negotiation",
+  "Proposal Sent": "proposal",
+  Won: "won",
+  Lost: "lost",
+};
+const STAGE_BACKEND_TO_UI = {
+  lead: "Lead",
+  contacted: "Contacted",
+  qualified: "Qualified",
+  meeting: "Meeting/Demo",
+  proposal: "Proposal Sent",
+  negotiation: "Negotiation",
+  won: "Won",
+  lost: "Lost",
+};
+
+/** Map backend deal to table row. */
+function mapDealToRow(deal, ownerList = []) {
+  let owner = deal.owner && typeof deal.owner === "object" ? deal.owner : null;
+  if (!owner && deal.owner && ownerList.length) {
+    const id = typeof deal.owner === "string" ? deal.owner : deal.owner?.toString?.();
+    owner = ownerList.find((u) => (u.id || u._id) === id) ? { _id: id, name: ownerList.find((u) => (u.id || u._id) === id).name } : null;
+  }
+  const stageUi = STAGE_BACKEND_TO_UI[deal.stage] || deal.stage || "Lead";
+  const amount = deal.amount != null ? deal.amount : 0;
+  const value = amount === 0 ? "₹0" : `₹${Number(amount).toLocaleString("en-IN")}`;
+  return {
+    id: deal._id,
+    ownerId: owner ? (owner._id || owner.id) : (deal.owner && typeof deal.owner === "string" ? deal.owner : null),
+    title: deal.title || "—",
+    subtext: deal.city || "—",
+    company: deal.company || "—",
+    value,
+    stage: stageUi,
+    probability: deal.prob != null ? deal.prob : 10,
+    product: deal.product || "—",
+    owner: owner ? owner.name : "—",
+    ownerInitials: getInitials(owner ? owner.name : ""),
+    closeDate: deal.closeDate ? new Date(deal.closeDate).toISOString().slice(0, 10) : "—",
+    followUp: deal.followup ? new Date(deal.followup).toISOString().slice(0, 10) : "—",
+    lastActivity: deal.lastAct ? new Date(deal.lastAct).toISOString().slice(0, 10) : "—",
+  };
+}
 
 const STAGES = ["Lead", "Qualified", "Meeting/Demo", "Negotiation", "Proposal Sent", "Won", "Lost"];
 const LEAD_SOURCES = ["Website", "Referral", "Cold Call", "LinkedIn", "Event/Trade Show", "Partner"];
 const INDUSTRIES = ["Technology", "Consulting", "Retail", "Healthcare", "Education", "Finance", "Other"];
-const OWNERS = [
-  { name: "Priya Nair", initials: "PN" },
-  { name: "Vikram Joshi", initials: "VJ" },
-  { name: "Meena Reddy", initials: "MR" },
-  { name: "Aditya Kumar", initials: "AK" },
-  { name: "Kavya Shah", initials: "KS" },
-];
 
 const STAGE_STYLES = {
   Won: "bg-emerald-100 text-emerald-700",
@@ -42,18 +89,8 @@ const STAGE_STYLES = {
   "Meeting/Demo": "bg-amber-100 text-amber-700",
   Qualified: "bg-violet-100 text-violet-700",
   Lead: "bg-gray-100 text-gray-700",
+  Contacted: "bg-blue-100 text-blue-700",
 };
-
-const INITIAL_DEALS = [
-  { id: 1, title: "TechNova Enterprise License", subtext: "Bangalore", company: "TechNova Pvt Ltd", value: "₹8,50,000", stage: "Won", probability: 100, product: "Enterprise Suite", owner: "Vikram Joshi", ownerInitials: "VJ", closeDate: "2025-05-15", followUp: "2025-05-15", lastActivity: "2025-01-15" },
-  { id: 2, title: "Horizon Retail Suite", subtext: "Delhi", company: "Horizon Retail Co", value: "₹9,20,000", stage: "Won", probability: 100, product: "Retail Suite", owner: "Aditya Kumar", ownerInitials: "AK", closeDate: "2025-05-20", followUp: "2025-05-20", lastActivity: "2025-01-22" },
-  { id: 3, title: "GreenPath Consulting Module", subtext: "Mumbai", company: "GreenPath Solutions", value: "₹3,20,000", stage: "Proposal Sent", probability: 70, product: "Consulting Module", owner: "Meena Reddy", ownerInitials: "MR", closeDate: "2025-04-30", followUp: "2025-03-01", lastActivity: "2025-02-16" },
-  { id: 4, title: "MediCore Healthcare Module", subtext: "Ahmedabad", company: "MediCore India", value: "₹5,00,000", stage: "Negotiation", probability: 85, product: "Healthcare Module", owner: "Aditya Kumar", ownerInitials: "AK", closeDate: "2025-05-10", followUp: "2025-03-05", lastActivity: "2025-02-10" },
-  { id: 5, title: "EduLeap Education Suite", subtext: "Pune", company: "EduLeap Foundation", value: "₹6,25,000", stage: "Meeting/Demo", probability: 50, product: "Education Suite", owner: "Aditya Kumar", ownerInitials: "AK", closeDate: "2025-05-25", followUp: "2025-03-02", lastActivity: "2025-02-05" },
-  { id: 6, title: "FinPlex SaaS Starter", subtext: "Chennai", company: "FinPlex Systems", value: "₹5,80,000", stage: "Qualified", probability: 40, product: "SaaS Starter", owner: "Kavya Shah", ownerInitials: "KS", closeDate: "2025-06-01", followUp: "2025-03-10", lastActivity: "2025-02-08" },
-  { id: 7, title: "CloudSoft CRM Pro", subtext: "Hyderabad", company: "CloudSoft India", value: "₹7,00,000", stage: "Qualified", probability: 40, product: "CRM Pro", owner: "Meena Reddy", ownerInitials: "MR", closeDate: "2025-06-15", followUp: "2025-03-12", lastActivity: "2025-02-12" },
-  { id: 8, title: "AutoParts Hub - Lead", subtext: "Surat", company: "AutoParts Hub", value: "₹5,00,000", stage: "Lead", probability: 10, product: "SaaS Starter", owner: "Kavya Shah", ownerInitials: "KS", closeDate: "2025-07-01", followUp: "2025-03-20", lastActivity: "2025-02-10" },
-];
 
 const initialDealForm = {
   dealTitle: "",
@@ -62,7 +99,7 @@ const initialDealForm = {
   stage: "Lead",
   probability: "10",
   productService: "",
-  owner: "Priya Nair",
+  assignedTo: "",
   leadSource: "Website",
   expectedCloseDate: "",
   followUpDate: "",
@@ -72,7 +109,13 @@ const initialDealForm = {
 };
 
 export default function AdminDealsPage() {
-  const [deals, setDeals] = useState(INITIAL_DEALS);
+  const navigate = useNavigate();
+  const storedUser = getStoredUser();
+  const adminUser = storedUser ? { name: storedUser.name || "Admin", role: storedUser.role || "Admin", email: storedUser.email || "", initials: getInitials(storedUser.name) } : { name: "Admin", role: "Admin", email: "", initials: "AD" };
+
+  const [deals, setDeals] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("All Stages");
   const [ownerFilter, setOwnerFilter] = useState("All Owners");
@@ -82,6 +125,47 @@ export default function AdminDealsPage() {
   const [viewingDeal, setViewingDeal] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+
+  useEffect(() => {
+    if (!getToken()) {
+      toast.info("Please log in to manage deals.");
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    let cancelled = false;
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [dealsRes, usersRes] = await Promise.all([
+          apiRequest("/api/v1/deals?page=1&limit=200"),
+          apiRequest("/api/v1/admin/users").catch((e) => {
+            if (e?.status === 401) throw e;
+            return { users: [] };
+          }),
+        ]);
+        if (cancelled) return;
+        setDeals((dealsRes.deals || []).map((d) => mapDealToRow(d)));
+        setUsers(usersRes.users || []);
+      } catch (err) {
+        if (cancelled) return;
+        if (err?.status === 401) {
+          clearAuth();
+          toast.error("Session expired. Please log in again.");
+          navigate("/login", { replace: true });
+          return;
+        }
+        toast.error(err.message || "Failed to load deals");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -105,8 +189,9 @@ export default function AdminDealsPage() {
   const wonDeals = deals.filter((d) => d.stage === "Won");
   const lostDeals = deals.filter((d) => d.stage === "Lost");
   const pipelineDeals = deals.filter((d) => d.stage !== "Won" && d.stage !== "Lost");
-  const wonRevenue = wonDeals.reduce((sum, d) => sum + parseInt(d.value.replace(/[₹,]/g, ""), 10), 0);
-  const pipelineValue = pipelineDeals.reduce((sum, d) => sum + parseInt(d.value.replace(/[₹,]/g, ""), 10), 0);
+  const parseValue = (v) => parseInt(String(v || "0").replace(/[₹,\s]/g, ""), 10) || 0;
+  const wonRevenue = wonDeals.reduce((sum, d) => sum + parseValue(d.value), 0);
+  const pipelineValue = pipelineDeals.reduce((sum, d) => sum + parseValue(d.value), 0);
   const totalValue = wonRevenue + pipelineValue;
   const avgDealValue = deals.length ? Math.round(totalValue / deals.length) : 0;
   const winRate = deals.length ? Math.round((wonDeals.length / deals.length) * 100) : 0;
@@ -143,9 +228,20 @@ export default function AdminDealsPage() {
     toast.success(`Exported ${filtered.length} deal${filtered.length !== 1 ? "s" : ""}`);
   };
 
-  const handleDelete = (id) => {
-    setDeals((prev) => prev.filter((d) => d.id !== id));
-    toast.success("Deal deleted");
+  const handleDelete = async (id) => {
+    try {
+      await apiRequest(`/api/v1/deals/${id}`, { method: "DELETE" });
+      setDeals((prev) => prev.filter((d) => d.id !== id));
+      toast.success("Deal deleted");
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to delete deal");
+    }
   };
 
   const toDdMmYyyy = (yyyyMmDd) => {
@@ -156,18 +252,18 @@ export default function AdminDealsPage() {
 
   const openEditDeal = (row) => {
     setDealForm({
-      dealTitle: row.title || "",
-      company: row.company || "",
+      dealTitle: row.title === "—" ? "" : row.title,
+      company: row.company === "—" ? "" : row.company,
       dealValue: (row.value || "").replace(/[₹,\s]/g, "") || "0",
       stage: row.stage || "Lead",
       probability: String(row.probability ?? 10),
-      productService: row.product || "",
-      owner: row.owner || OWNERS[0]?.name || "",
+      productService: row.product === "—" ? "" : row.product,
+      assignedTo: row.ownerId || (users[0] && (users[0].id || users[0]._id)) || "",
       leadSource: "Website",
-      expectedCloseDate: toDdMmYyyy(row.closeDate) || "",
-      followUpDate: toDdMmYyyy(row.followUp) || "",
+      expectedCloseDate: row.closeDate && row.closeDate !== "—" ? toDdMmYyyy(row.closeDate) : "",
+      followUpDate: row.followUp && row.followUp !== "—" ? toDdMmYyyy(row.followUp) : "",
       industry: "Technology",
-      city: row.subtext || "",
+      city: row.subtext === "—" ? "" : row.subtext,
       notes: "",
     });
     setEditingDeal(row);
@@ -186,39 +282,60 @@ export default function AdminDealsPage() {
     setDealForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveDeal = () => {
-    const { dealTitle, company, dealValue, stage, probability, productService, owner, expectedCloseDate, followUpDate, city, notes } = dealForm;
-    if (!dealTitle.trim() || !company.trim() || !dealValue.trim()) return;
-    const ownerEntry = OWNERS.find((o) => o.name === owner) || OWNERS[0];
-    const valueNum = parseInt(String(dealValue).replace(/[₹,\s]/g, ""), 10) || 0;
-    const valueDisplay = formatCurrency(valueNum);
+  const handleSaveDeal = async () => {
+    const { dealTitle, company, dealValue, stage, probability, productService, assignedTo, leadSource, expectedCloseDate, followUpDate, city, industry, notes } = dealForm;
+    if (!dealTitle.trim() || !company.trim()) {
+      toast.error("Deal title and company are required");
+      return;
+    }
+    const ownerId = assignedTo || (users[0] && (users[0].id || users[0]._id));
+    if (!ownerId && !editingDeal) {
+      toast.error("Please assign an owner (ensure users are loaded).");
+      return;
+    }
+    const amount = parseInt(String(dealValue).replace(/[₹,\s]/g, ""), 10) || 0;
+    const stageBackend = STAGE_UI_TO_BACKEND[stage] || "lead";
     const closeDate = toYyyyMmDd(expectedCloseDate) || new Date().toISOString().slice(0, 10);
     const followUp = toYyyyMmDd(followUpDate) || closeDate;
-    const today = new Date().toISOString().slice(0, 10);
     const payload = {
       title: dealTitle.trim(),
-      subtext: city.trim() || "—",
       company: company.trim(),
-      value: valueDisplay,
-      stage,
-      probability: parseInt(probability, 10) || 0,
-      product: productService.trim() || "—",
-      owner: ownerEntry.name,
-      ownerInitials: ownerEntry.initials,
-      closeDate,
-      followUp,
-      lastActivity: editingDeal ? editingDeal.lastActivity : today,
+      amount,
+      stage: stageBackend,
+      prob: parseInt(probability, 10) || 10,
+      product: productService.trim() || undefined,
+      owner: ownerId,
+      source: leadSource,
+      industry: industry || undefined,
+      city: city.trim() || undefined,
+      closeDate: closeDate || undefined,
+      followup: followUp || undefined,
+      notes: notes.trim() || undefined,
     };
-    if (editingDeal) {
-      setDeals((prev) => prev.map((d) => (d.id === editingDeal.id ? { ...payload, id: d.id } : d)));
+    try {
+      if (editingDeal) {
+        const res = await apiRequest(`/api/v1/deals/${editingDeal.id}`, { method: "PUT", body: payload });
+        const updated = mapDealToRow({ ...res.deal, _id: res.deal._id, owner: res.deal.owner }, users);
+        setDeals((prev) => prev.map((d) => (d.id === editingDeal.id ? updated : d)));
+        toast.success("Deal updated successfully");
+      } else {
+        const res = await apiRequest("/api/v1/deals", { method: "POST", body: payload });
+        const created = mapDealToRow({ ...res.deal, _id: res.deal._id, owner: res.deal.owner }, users);
+        setDeals((prev) => [created, ...prev]);
+        toast.success("Deal added successfully");
+      }
+      setDealForm(initialDealForm);
       setEditingDeal(null);
-      toast.success("Deal updated successfully");
-    } else {
-      setDeals((prev) => [{ ...payload, id: Math.max(0, ...deals.map((d) => d.id)) + 1 }, ...prev]);
-      toast.success("Deal added successfully");
+      setAddModalOpen(false);
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to save deal");
     }
-    setDealForm(initialDealForm);
-    setAddModalOpen(false);
   };
 
   const closeAddModal = () => {
@@ -262,17 +379,17 @@ export default function AdminDealsPage() {
           </button>
           <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
             <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
-              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{ADMIN_USER.initials}</div>
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{adminUser.initials}</div>
             </button>
             {profileOpen && (
               <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
                 <div className="px-4 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{ADMIN_USER.initials}</div>
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{adminUser.initials}</div>
                     <div className="min-w-0">
-                      <p className="font-bold text-black truncate">{ADMIN_USER.name}</p>
-                      <p className="text-xs font-medium text-black/70">{ADMIN_USER.role}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{ADMIN_USER.email}</p>
+                      <p className="font-bold text-black truncate">{adminUser.name}</p>
+                      <p className="text-xs font-medium text-black/70">{adminUser.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{adminUser.email}</p>
                     </div>
                   </div>
                 </div>
@@ -281,7 +398,7 @@ export default function AdminDealsPage() {
                     <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
                     My Profile
                   </button>
-                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
+                  <button type="button" onClick={() => { clearAuth(); navigate("/login"); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
                     <LogOut className="w-4 h-4" strokeWidth={2} />
                     Log out
                   </button>
@@ -404,10 +521,9 @@ export default function AdminDealsPage() {
                 className="px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-sm text-body focus:outline-none focus:ring-2 focus:ring-brand appearance-none cursor-pointer pr-8"
               >
                 <option>All Owners</option>
-                <option>Vikram Joshi</option>
-                <option>Meena Reddy</option>
-                <option>Aditya Kumar</option>
-                <option>Kavya Shah</option>
+                {users.map((u) => (
+                  <option key={u.id || u._id} value={u.name || u.email || ""}>{u.name || u.email || u.id}</option>
+                ))}
               </select>
               <button
                 type="button"
@@ -427,6 +543,10 @@ export default function AdminDealsPage() {
             </div>
           </div>
 
+          {loading ? (
+            <div className="py-12 text-center text-body text-sm">Loading deals…</div>
+          ) : (
+          <React.Fragment>
           <div className="overflow-x-auto">
             <table className="w-max min-w-[1200px] text-sm table-fixed">
               <thead>
@@ -521,6 +641,8 @@ export default function AdminDealsPage() {
           {filtered.length === 0 && (
             <div className="py-12 text-center text-body text-sm">No deals match your filters.</div>
           )}
+          </React.Fragment>
+          )}
         </div>
       </div>
 
@@ -608,12 +730,13 @@ export default function AdminDealsPage() {
                 <div>
                   <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Owner</label>
                   <select
-                    value={dealForm.owner}
-                    onChange={(e) => handleDealFormChange("owner", e.target.value)}
+                    value={dealForm.assignedTo}
+                    onChange={(e) => handleDealFormChange("assignedTo", e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                   >
-                    {OWNERS.map((o) => (
-                      <option key={o.initials} value={o.name}>{o.name}</option>
+                    <option value="">Select owner</option>
+                    {users.map((u) => (
+                      <option key={u.id || u._id} value={u.id || u._id}>{u.name || u.email || u.id}</option>
                     ))}
                   </select>
                 </div>

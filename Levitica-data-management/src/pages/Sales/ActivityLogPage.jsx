@@ -1,673 +1,180 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, ClipboardList, Plus, Pencil, Trash2, X, Save, CheckSquare, ListTodo, Calendar, Phone, Mail, AlertCircle, User, LogOut } from "lucide-react";
-import { getStoredUser, clearAuth } from "../../utils/api";
+import { toast } from "react-toastify";
+import {
+  Bell,
+  Plus,
+  Pencil,
+  Trash2,
+  Check,
+  FileText,
+  Clock,
+  X,
+  Save,
+  Calendar,
+  Activity,
+  Phone,
+  Mail,
+  CalendarDays,
+  AlertCircle,
+  CheckCircle,
+  User,
+  LogOut,
+} from "lucide-react";
+import { apiRequest, getStoredUser, getToken, clearAuth } from "../../utils/api";
 
-const FALLBACK_USER = { name: "Vikram Joshi", role: "Sales Rep", email: "vikram.joshi@company.com", initials: "VJ" };
+function getInitials(name) {
+  if (!name || typeof name !== "string") return "—";
+  return name.trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+}
 
-const inputClass =
-  "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
+function mapActivityToRow(act) {
+  const rep = act.rep && typeof act.rep === "object" ? act.rep : null;
+  const deal = act.dealId && typeof act.dealId === "object" ? act.dealId : null;
+  const dateStr = act.date ? new Date(act.date).toISOString().slice(0, 10) : "—";
+  const durationDisplay = act.duration ? `${act.duration}min` : "";
+  return {
+    id: act._id,
+    type: act.type || "Call",
+    subject: act.subject || "—",
+    company: act.company || "—",
+    outcome: act.outcome || "—",
+    duration: durationDisplay,
+    rep: rep ? rep.name : "—",
+    repInitials: getInitials(rep ? rep.name : ""),
+    repId: rep ? (rep._id || rep.id) : null,
+    dealLinked: deal ? deal.title : "—",
+    dealId: deal ? (deal._id || deal.id) : null,
+    date: dateStr,
+    recording: act.recording || "",
+  };
+}
+
+function mapTaskToRow(task) {
+  const rep = task.rep && typeof task.rep === "object" ? task.rep : null;
+  const deal = task.dealId && typeof task.dealId === "object" ? task.dealId : null;
+  const dueStr = task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "—";
+  return {
+    id: task._id,
+    type: task.type || "Call",
+    subject: task.subject || "—",
+    company: task.company || "—",
+    dueDate: dueStr,
+    priority: task.priority || "Medium",
+    status: task.status || "Pending",
+    rep: rep ? rep.name : "—",
+    repInitials: getInitials(rep ? rep.name : ""),
+    repId: rep ? (rep._id || rep.id) : null,
+    deal: deal ? deal.title : "—",
+    dealId: deal ? (deal._id || deal.id) : null,
+  };
+}
+
+const ACTIVITY_TYPES = ["Call", "Email", "Meeting", "Demo", "Follow-up", "Note"];
+const CALL_OUTCOMES = ["", "Voicemail", "Connected - Interested", "Callback Requested", "No Answer"];
+const FOLLOW_UP_TYPES = ["Call", "Email", "Meeting", "Follow-up"];
+
+const TYPE_STYLES = { Call: "bg-blue-100 text-blue-700", Email: "bg-violet-100 text-violet-700", Meeting: "bg-amber-100 text-amber-700", "Follow-up": "bg-emerald-100 text-emerald-700" };
+const PRIORITY_STYLES = { High: "bg-red-100 text-red-700", Medium: "bg-amber-100 text-amber-700", Low: "bg-gray-100 text-gray-600" };
+const TASK_STATUS_STYLES = { Pending: "bg-amber-100 text-amber-700", Done: "bg-emerald-100 text-emerald-700", Completed: "bg-emerald-100 text-emerald-700" };
+
+const initialActivityForm = {
+  activityType: "Call",
+  date: "",
+  subject: "",
+  company: "",
+  duration: "0",
+  callOutcome: "",
+  assignedRep: "",
+  linkedDealId: "",
+  callRecording: "",
+  notes: "",
+  scheduleFollowUp: "",
+  followUpType: "Call",
+};
+
+const initialTaskForm = { type: "Call", subject: "", company: "", dueDate: "", priority: "Medium", status: "Pending", assignedRep: "", linkedDealId: "" };
+
+const inputClass = "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
 const labelClass = "block text-xs font-medium text-body uppercase tracking-wider mb-1.5";
-
-const getInitials = (name) =>
-  name
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-
-function LogActivityModal({ open, onClose, onSave, onSaveFollowUpTask, activity: editingActivity }) {
-  const [form, setForm] = useState({
-    type: "Call",
-    date: new Date().toISOString().slice(0, 10),
-    subject: "",
-    company: "",
-    duration: "0",
-    outcome: "",
-    rep: "Vikram Joshi",
-    deal: "",
-    contact: "",
-    recording: "",
-    notes: "",
-    scheduleFollowUp: "",
-    followUpType: "Call",
-  });
-
-  useEffect(() => {
-    if (!open) return;
-    if (editingActivity) {
-      const dur = editingActivity.duration === "-" ? "0" : String(editingActivity.duration).replace(/\D/g, "") || "0";
-      setForm({
-        type: editingActivity.type || "Call",
-        date: editingActivity.date || new Date().toISOString().slice(0, 10),
-        subject: editingActivity.subject || "",
-        company: editingActivity.company === "-" ? "" : (editingActivity.company || ""),
-        duration: dur,
-        outcome: editingActivity.outcome === "-" ? "" : (editingActivity.outcome || ""),
-        rep: editingActivity.rep || "Vikram Joshi",
-        deal: editingActivity.dealLinked === "-" ? "" : (editingActivity.dealLinked || ""),
-        contact: "",
-        recording: editingActivity.recording === "-" ? "" : (editingActivity.recording || ""),
-        notes: editingActivity.description || "",
-        scheduleFollowUp: "",
-        followUpType: "Call",
-      });
-    } else {
-      setForm({
-        type: "Call",
-        date: new Date().toISOString().slice(0, 10),
-        subject: "",
-        company: "",
-        duration: "0",
-        outcome: "",
-        rep: "Vikram Joshi",
-        deal: "",
-        contact: "",
-        recording: "",
-        notes: "",
-        scheduleFollowUp: "",
-        followUpType: "Call",
-      });
-    }
-  }, [open, editingActivity]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!form.subject?.trim() || !form.date || !form.notes?.trim()) return;
-    const newActivity = {
-      id: editingActivity?.id ?? Date.now(),
-      type: form.type,
-      subject: form.subject.trim(),
-      description: form.notes?.trim() || "",
-      company: form.company?.trim() || "-",
-      outcome: form.outcome || "-",
-      duration: form.duration ? `${form.duration}min` : "-",
-      rep: form.rep,
-      repInitials: getInitials(form.rep),
-      dealLinked: form.deal || "-",
-      date: form.date,
-      recording: form.recording?.trim() || "-",
-    };
-    onSave(newActivity, !!editingActivity);
-
-    if (!editingActivity && onSaveFollowUpTask && form.scheduleFollowUp) {
-      const followUpTask = {
-        id: Date.now() + 1,
-        type: form.followUpType,
-        subject: `Follow-up: ${form.subject.trim()}`,
-        company: form.company?.trim() || "-",
-        dueDate: form.scheduleFollowUp,
-        priority: "Medium",
-        status: "Pending",
-        rep: form.rep,
-        repInitials: getInitials(form.rep),
-        deal: form.deal || "-",
-      };
-      onSaveFollowUpTask(followUpTask);
-    }
-
-    setForm({
-      type: "Call",
-      date: new Date().toISOString().slice(0, 10),
-      subject: "",
-      company: "",
-      duration: "0",
-      outcome: "",
-      rep: "Vikram Joshi",
-      deal: "",
-      contact: "",
-      recording: "",
-      notes: "",
-      scheduleFollowUp: "",
-      followUpType: "Call",
-    });
-    onClose();
-  };
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
-      <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">{editingActivity ? "Edit Activity" : "Log Activity"}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" strokeWidth={2} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6">
-          <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-4">Activity Details</p>
-
-          {/* Row 1: Activity Type, Date */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-4">
-            <div>
-              <label className={labelClass}>Activity Type *</label>
-              <select name="type" value={form.type} onChange={handleChange} className={inputClass} required>
-                <option>Call</option>
-                <option>Email</option>
-                <option>Meeting</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Date *</label>
-              <div className="relative">
-                <input
-                  type="date"
-                  name="date"
-                  value={form.date}
-                  onChange={handleChange}
-                  className={inputClass + " pr-10"}
-                  required
-                />
-                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={2} />
-              </div>
-            </div>
-          </div>
-
-          {/* Row 2: Subject (full width) */}
-          <div className="mb-4">
-            <label className={labelClass}>Subject *</label>
-            <input
-              type="text"
-              name="subject"
-              value={form.subject}
-              onChange={handleChange}
-              placeholder="Brief activity title"
-              className={inputClass}
-              required
-            />
-          </div>
-
-          {/* Row 3: Company, Duration */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-4">
-            <div>
-              <label className={labelClass}>Company</label>
-              <input
-                type="text"
-                name="company"
-                value={form.company}
-                onChange={handleChange}
-                placeholder="Company name"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Duration (Mins)</label>
-              <input
-                type="number"
-                name="duration"
-                value={form.duration}
-                onChange={handleChange}
-                className={inputClass}
-                min="0"
-              />
-            </div>
-          </div>
-
-          {/* Row 4: Call Outcome, Rep */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-4">
-            <div>
-              <label className={labelClass}>Call Outcome</label>
-              <select name="outcome" value={form.outcome} onChange={handleChange} className={inputClass}>
-                <option value="">—</option>
-                <option>Connected - Interested</option>
-                <option>Callback Requested</option>
-                <option>No Answer</option>
-                <option>Not Interested</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Rep</label>
-              <select name="rep" value={form.rep} onChange={handleChange} className={inputClass}>
-                <option>Vikram Joshi</option>
-                <option>Arjun Sharma</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Row 5: Linked Deal, Linked Contact */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-4">
-            <div>
-              <label className={labelClass}>Linked Deal</label>
-              <select name="deal" value={form.deal} onChange={handleChange} className={inputClass}>
-                <option value="">— None —</option>
-                <option>Horizon Retail Integration</option>
-                <option>TechNova Enterprise License</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Linked Contact</label>
-              <select name="contact" value={form.contact} onChange={handleChange} className={inputClass}>
-                <option value="">— None —</option>
-                <option>Suresh Rajan</option>
-                <option>Dev Malhotra</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Row 6: Call Recording */}
-          <div className="mb-4">
-            <label className={labelClass}>Call Recording (Filename)</label>
-            <input
-              type="text"
-              name="recording"
-              value={form.recording}
-              onChange={handleChange}
-              placeholder="e.g. call-recording-01.mp3"
-              className={inputClass}
-            />
-          </div>
-
-          {/* Row 7: Notes */}
-          <div className="mb-6">
-            <label className={labelClass}>Notes *</label>
-            <textarea
-              name="notes"
-              value={form.notes}
-              onChange={handleChange}
-              rows={4}
-              placeholder="Activity notes..."
-              className={inputClass + " min-h-[100px] resize-y"}
-              required
-            />
-          </div>
-
-          {/* Follow-Up Task Section */}
-          <div className="pt-6 mt-6 border-t border-gray-200">
-            <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-4">Follow-Up Task</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
-                <label className={labelClass}>Schedule Follow-Up</label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    name="scheduleFollowUp"
-                    value={form.scheduleFollowUp}
-                    onChange={handleChange}
-                    className={inputClass + " pr-10"}
-                  />
-                  <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={2} />
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Follow-Up Type</label>
-                <select name="followUpType" value={form.followUpType} onChange={handleChange} className={inputClass}>
-                  <option>Call</option>
-                  <option>Follow-up</option>
-                  <option>Email</option>
-                  <option>Meeting</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-6 mt-6 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
-            >
-              <Save className="w-4 h-4" strokeWidth={2} />
-              Save Activity
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function AddTaskModal({ open, onClose, onSave, task: editingTask }) {
-  const [form, setForm] = useState({
-    type: "Call",
-    dueDate: new Date().toISOString().slice(0, 10),
-    subject: "",
-    company: "",
-    priority: "Medium",
-    rep: "Vikram Joshi",
-    deal: "",
-    notes: "",
-  });
-
-  useEffect(() => {
-    if (!open) return;
-    if (editingTask) {
-      setForm({
-        type: editingTask.type || "Call",
-        dueDate: editingTask.dueDate || new Date().toISOString().slice(0, 10),
-        subject: editingTask.subject || "",
-        company: editingTask.company === "-" ? "" : (editingTask.company || ""),
-        priority: editingTask.priority || "Medium",
-        rep: editingTask.rep || "Vikram Joshi",
-        deal: editingTask.deal === "-" ? "" : (editingTask.deal || ""),
-        notes: "",
-      });
-    } else {
-      setForm({
-        type: "Call",
-        dueDate: new Date().toISOString().slice(0, 10),
-        subject: "",
-        company: "",
-        priority: "Medium",
-        rep: "Vikram Joshi",
-        deal: "",
-        notes: "",
-      });
-    }
-  }, [open, editingTask]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!form.subject?.trim() || !form.dueDate) return;
-    const newTask = {
-      id: editingTask?.id ?? Date.now(),
-      type: form.type,
-      subject: form.subject.trim(),
-      company: form.company?.trim() || "-",
-      dueDate: form.dueDate,
-      priority: form.priority,
-      status: editingTask?.status ?? "Pending",
-      rep: form.rep,
-      repInitials: getInitials(form.rep),
-      deal: form.deal || "-",
-    };
-    onSave(newTask, !!editingTask);
-    setForm({
-      type: "Call",
-      dueDate: new Date().toISOString().slice(0, 10),
-      subject: "",
-      company: "",
-      priority: "Medium",
-      rep: "Vikram Joshi",
-      deal: "",
-      notes: "",
-    });
-    onClose();
-  };
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
-      <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-bold text-brand-dark">{editingTask ? "Edit Task" : "Add Follow-up Task"}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition"
-            aria-label="Close"
-          >
-            <X className="w-5 h-5" strokeWidth={2} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6">
-          {/* Row 1: Task Type, Due Date */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-4">
-            <div>
-              <label className={labelClass}>Task Type</label>
-              <select name="type" value={form.type} onChange={handleChange} className={inputClass}>
-                <option>Call</option>
-                <option>Follow-up</option>
-                <option>Email</option>
-                <option>Meeting</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Due Date *</label>
-              <div className="relative">
-                <input
-                  type="date"
-                  name="dueDate"
-                  value={form.dueDate}
-                  onChange={handleChange}
-                  className={inputClass + " pr-10"}
-                  required
-                />
-                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" strokeWidth={2} />
-              </div>
-            </div>
-          </div>
-
-          {/* Row 2: Subject (full width) */}
-          <div className="mb-4">
-            <label className={labelClass}>Subject *</label>
-            <input
-              type="text"
-              name="subject"
-              value={form.subject}
-              onChange={handleChange}
-              placeholder="Task description"
-              className={inputClass}
-              required
-            />
-          </div>
-
-          {/* Row 3: Company, Priority */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-4">
-            <div>
-              <label className={labelClass}>Company</label>
-              <input
-                type="text"
-                name="company"
-                value={form.company}
-                onChange={handleChange}
-                placeholder="Company name"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Priority</label>
-              <select name="priority" value={form.priority} onChange={handleChange} className={inputClass}>
-                <option>High</option>
-                <option>Medium</option>
-                <option>Low</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Row 4: Rep, Linked Deal */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-4">
-            <div>
-              <label className={labelClass}>Rep</label>
-              <select name="rep" value={form.rep} onChange={handleChange} className={inputClass}>
-                <option>Vikram Joshi</option>
-                <option>Arjun Sharma</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Linked Deal</label>
-              <select name="deal" value={form.deal} onChange={handleChange} className={inputClass}>
-                <option value="">— None —</option>
-                <option>Horizon Retail Integration</option>
-                <option>TechNova Enterprise License</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Row 5: Notes */}
-          <div className="mb-6">
-            <label className={labelClass}>Notes</label>
-            <textarea
-              name="notes"
-              value={form.notes}
-              onChange={handleChange}
-              rows={4}
-              placeholder="Additional notes..."
-              className={inputClass + " min-h-[100px] resize-y"}
-            />
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-gray-200 text-body hover:bg-gray-50 font-medium text-sm transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
-            >
-              <Save className="w-4 h-4" strokeWidth={2} />
-              Save Task
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-const TYPE_STYLES = {
-  Call: "bg-teal-100 text-teal-700",
-  Email: "bg-amber-100 text-amber-700",
-  Meeting: "bg-orange-100 text-orange-700",
-  "Follow-up": "bg-blue-100 text-blue-700",
-};
-
-const PRIORITY_STYLES = {
-  High: "bg-red-100 text-red-700",
-  Medium: "bg-amber-100 text-amber-700",
-  Low: "bg-gray-100 text-gray-700",
-};
-
-const TASK_STATUS_STYLES = {
-  Pending: "bg-amber-100 text-amber-700",
-  Completed: "bg-success/15 text-success",
-  Overdue: "bg-pink-100 text-pink-700",
-};
-
-const INITIAL_TASKS = [
-  {
-    id: 1,
-    type: "Call",
-    subject: "Follow-up call with Horizon Retail",
-    company: "Horizon Retail Co",
-    dueDate: "2025-02-28",
-    priority: "High",
-    status: "Pending",
-    rep: "Vikram Joshi",
-    repInitials: "VJ",
-    deal: "Horizon Retail Integration",
-  },
-  {
-    id: 2,
-    type: "Follow-up",
-    subject: "Check in with TechNova renewal",
-    company: "TechNova Pvt Ltd",
-    dueDate: "2025-03-15",
-    priority: "Medium",
-    status: "Pending",
-    rep: "Vikram Joshi",
-    repInitials: "VJ",
-    deal: "TechNova Enterprise License",
-  },
-];
-
-const INITIAL_ACTIVITIES = [
-  {
-    id: 1,
-    type: "Call",
-    subject: "Negotiation Call - Horizon",
-    description: "Discussed 10% volume discount. VP confirmed will c...",
-    company: "Horizon Retail Co",
-    outcome: "Callback Requested",
-    duration: "18min",
-    rep: "Vikram Joshi",
-    repInitials: "VJ",
-    dealLinked: "Horizon Retail Integration",
-    date: "2025-02-18",
-    recording: "-",
-  },
-  {
-    id: 2,
-    type: "Meeting",
-    subject: "Product Demo - TechNova",
-    description: "Demonstrated enterprise dashboard, CTO loved ther",
-    company: "TechNova Pvt Ltd",
-    outcome: "-",
-    duration: "60min",
-    rep: "Vikram Joshi",
-    repInitials: "VJ",
-    dealLinked: "TechNova Enterprise License",
-    date: "2025-01-18",
-    recording: "-",
-  },
-  {
-    id: 3,
-    type: "Email",
-    subject: "Proposal Follow-up Email",
-    description: "Sent detailed pricing sheet and proposal document",
-    company: "TechNova Pvt Ltd",
-    outcome: "-",
-    duration: "-",
-    rep: "Vikram Joshi",
-    repInitials: "VJ",
-    dealLinked: "TechNova Enterprise License",
-    date: "2025-01-16",
-    recording: "-",
-  },
-  {
-    id: 4,
-    type: "Call",
-    subject: "Initial Discovery Call",
-    description: "Client interested in enterprise plan. Budget con f...",
-    company: "TechNova Pvt Ltd",
-    outcome: "Connected - Interested",
-    duration: "25min",
-    rep: "Vikram Joshi",
-    repInitials: "VJ",
-    dealLinked: "TechNova Enterprise License",
-    date: "2025-01-15",
-    recording: "-",
-  },
-];
 
 export default function ActivityLogPage() {
   const navigate = useNavigate();
-  const currentUser = getStoredUser() || FALLBACK_USER;
-  const [activities, setActivities] = useState(INITIAL_ACTIVITIES);
-  const [tasks, setTasks] = useState(INITIAL_TASKS);
+  const storedUser = getStoredUser();
+  const currentUser = storedUser ? { name: storedUser.name || "User", role: storedUser.role || "Sales Rep", email: storedUser.email || "", initials: getInitials(storedUser.name) } : { name: "User", role: "Sales Rep", email: "", initials: "—" };
+  const currentUserId = storedUser && (storedUser._id || storedUser.id);
+
+  const [activities, setActivities] = useState([]);
+  const [followUpTasks, setFollowUpTasks] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [deals, setDeals] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("All Types");
   const [taskSearch, setTaskSearch] = useState("");
-  const [taskStatusFilter, setTaskStatusFilter] = useState("All Status");
   const [activeTab, setActiveTab] = useState("log");
-  const [showLogModal, setShowLogModal] = useState(false);
-  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [activityForm, setActivityForm] = useState(initialActivityForm);
   const [editingActivity, setEditingActivity] = useState(null);
   const [editingTask, setEditingTask] = useState(null);
+  const [addTaskOpen, setAddTaskOpen] = useState(false);
+  const [taskForm, setTaskForm] = useState(initialTaskForm);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+
+  const isRep = storedUser && storedUser.role === "Sales Rep";
+  const canDelete = storedUser && storedUser.role === "Admin";
+
+  useEffect(() => {
+    if (!getToken()) {
+      toast.info("Please log in to manage activities.");
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    let cancelled = false;
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [activitiesRes, tasksRes, dealsRes] = await Promise.all([
+          apiRequest("/api/v1/activities?page=1&limit=200"),
+          apiRequest("/api/v1/tasks?page=1&limit=200"),
+          apiRequest("/api/v1/deals?page=1&limit=200").catch(() => ({ deals: [] })),
+        ]);
+        let userList = [];
+        if (!isRep) {
+          try {
+            const usersRes = await apiRequest("/api/v1/team/users");
+            userList = usersRes.users || [];
+          } catch (e) {
+            if (e?.status === 401) throw e;
+          }
+        }
+        if (cancelled) return;
+        setActivities((activitiesRes.activities || []).map(mapActivityToRow));
+        setFollowUpTasks((tasksRes.tasks || []).map(mapTaskToRow));
+        setDeals(dealsRes.deals || []);
+        setUsers(userList);
+      } catch (err) {
+        if (cancelled) return;
+        if (err?.status === 401) {
+          clearAuth();
+          toast.error("Session expired. Please log in again.");
+          navigate("/login", { replace: true });
+          return;
+        }
+        toast.error(err.message || "Failed to load data");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => { cancelled = true; };
+  }, [navigate, isRep]);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
@@ -676,114 +183,218 @@ export default function ActivityLogPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [profileOpen]);
 
-  const handleSaveActivity = (payload, isEdit) => {
-    if (isEdit) {
-      setActivities((prev) => prev.map((a) => (a.id === payload.id ? payload : a)));
-    } else {
-      setActivities((prev) => [payload, ...prev]);
-    }
-    setEditingActivity(null);
-    setShowLogModal(false);
-  };
-
-  const handleDeleteActivity = (id) => {
-    if (window.confirm("Are you sure you want to delete this activity?")) {
-      setActivities((prev) => prev.filter((a) => a.id !== id));
-    }
-  };
-
-  const handleSaveTask = (payload, isEdit) => {
-    if (isEdit) {
-      setTasks((prev) => prev.map((t) => (t.id === payload.id ? payload : t)));
-    } else {
-      setTasks((prev) => [payload, ...prev]);
-    }
-    setEditingTask(null);
-    setShowAddTaskModal(false);
-  };
-
-  const handleDeleteTask = (id) => {
-    if (window.confirm("Are you sure you want to delete this task?")) {
-      setTasks((prev) => prev.filter((t) => t.id !== id));
-    }
-  };
-
   const filtered = activities.filter((row) => {
-    const matchSearch =
-      !search ||
-      row.subject?.toLowerCase().includes(search.toLowerCase()) ||
-      row.company?.toLowerCase().includes(search.toLowerCase()) ||
-      row.dealLinked?.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = !search || (row.subject || "").toLowerCase().includes(search.toLowerCase()) || (row.company || "").toLowerCase().includes(search.toLowerCase()) || (row.dealLinked || "").toLowerCase().includes(search.toLowerCase());
     const matchType = typeFilter === "All Types" || row.type === typeFilter;
     return matchSearch && matchType;
   });
 
-  const filteredTasks = tasks.filter((row) => {
-    const matchSearch =
-      !taskSearch ||
-      row.subject?.toLowerCase().includes(taskSearch.toLowerCase()) ||
-      row.company?.toLowerCase().includes(taskSearch.toLowerCase()) ||
-      row.deal?.toLowerCase().includes(taskSearch.toLowerCase());
-    const matchStatus = taskStatusFilter === "All Status" || row.status === taskStatusFilter;
-    return matchSearch && matchStatus;
-  });
-
-  const today = new Date().toISOString().slice(0, 10);
-  const pendingTasks = tasks.filter((t) => t.status === "Pending").length;
-  const overdueTasks = tasks.filter(
-    (t) => t.status === "Pending" && t.dueDate !== "-" && t.dueDate < today
-  ).length;
-
-  const calls = activities.filter((a) => a.type === "Call").length;
-  const emails = activities.filter((a) => a.type === "Email").length;
-  const meetings = activities.filter((a) => a.type === "Meeting").length;
-
-  const handleCompleteTask = (id) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
+  const now = new Date().toISOString().slice(0, 10);
+  const overdueCount = followUpTasks.filter((t) => t.status === "Pending" && t.dueDate !== "—" && t.dueDate < now).length;
+  const stats = {
+    total: activities.length,
+    calls: activities.filter((a) => a.type === "Call").length,
+    emails: activities.filter((a) => a.type === "Email").length,
+    meetings: activities.filter((a) => a.type === "Meeting").length,
+    overdueTasks: overdueCount,
+    pendingTasks: followUpTasks.filter((t) => t.status === "Pending").length,
   };
+
+  const filteredTasks = followUpTasks.filter(
+    (row) =>
+      !taskSearch ||
+      (row.subject || "").toLowerCase().includes(taskSearch.toLowerCase()) ||
+      (row.company || "").toLowerCase().includes(taskSearch.toLowerCase()) ||
+      (row.deal || "").toLowerCase().includes(taskSearch.toLowerCase())
+  );
+
+  const toYyyyMmDd = (ddMmYyyy) => {
+    if (!ddMmYyyy || !/^\d{2}-\d{2}-\d{4}$/.test(ddMmYyyy)) return ddMmYyyy || "";
+    const [d, m, y] = ddMmYyyy.split("-");
+    return `${y}-${m}-${d}`;
+  };
+
+  const handleDelete = async (id) => {
+    if (!canDelete) return;
+    try {
+      await apiRequest(`/api/v1/activities/${id}`, { method: "DELETE" });
+      setActivities((prev) => prev.filter((a) => a.id !== id));
+      toast.success("Activity deleted");
+    } catch (err) {
+      if (err?.status === 401) { clearAuth(); toast.error("Session expired. Please log in again."); navigate("/login", { replace: true }); return; }
+      toast.error(err.message || "Failed to delete activity");
+    }
+  };
+
+  const handleDeleteTask = async (id) => {
+    if (!canDelete) return;
+    try {
+      await apiRequest(`/api/v1/tasks/${id}`, { method: "DELETE" });
+      setFollowUpTasks((prev) => prev.filter((t) => t.id !== id));
+      toast.success("Task deleted");
+    } catch (err) {
+      if (err?.status === 401) { clearAuth(); toast.error("Session expired. Please log in again."); navigate("/login", { replace: true }); return; }
+      toast.error(err.message || "Failed to delete task");
+    }
+  };
+
+  const openEditActivity = (row) => {
+    setActivityForm({
+      activityType: row.type || "Call",
+      date: row.date && row.date !== "—" ? row.date : "",
+      subject: row.subject === "—" ? "" : row.subject,
+      company: row.company === "—" ? "" : row.company,
+      duration: row.duration ? String(row.duration).replace("min", "") : "0",
+      callOutcome: row.outcome === "—" ? "" : row.outcome,
+      assignedRep: row.repId || (users[0] && (users[0].id || users[0]._id)) || currentUserId || "",
+      linkedDealId: row.dealId || "",
+      callRecording: row.recording || "",
+      notes: row.subject === "—" ? "" : row.subject,
+      scheduleFollowUp: "",
+      followUpType: "Call",
+    });
+    setEditingActivity(row);
+    setAddModalOpen(true);
+  };
+
+  const openEditTask = (row) => {
+    setEditingTask(row);
+    setAddTaskOpen(false);
+    setTaskForm({
+      type: row.type || "Call",
+      subject: row.subject === "—" ? "" : row.subject,
+      company: row.company === "—" ? "" : row.company,
+      dueDate: row.dueDate && row.dueDate !== "—" ? row.dueDate : "",
+      priority: row.priority || "Medium",
+      status: row.status || "Pending",
+      assignedRep: row.repId || (users[0] && (users[0].id || users[0]._id)) || currentUserId || "",
+      linkedDealId: row.dealId || "",
+    });
+  };
+
+  const openAddTask = () => {
+    setEditingTask(null);
+    setAddTaskOpen(true);
+    setTaskForm({ ...initialTaskForm, assignedRep: isRep ? (currentUserId || "") : (users[0] && (users[0]._id || users[0].id)) || currentUserId || "", dueDate: now });
+  };
+
+  const handleActivityFormChange = (field, value) => { setActivityForm((prev) => ({ ...prev, [field]: value })); };
+  const handleTaskFormChange = (field, value) => { setTaskForm((prev) => ({ ...prev, [field]: value })); };
+
+  const handleSaveActivity = async () => {
+    const { activityType, date, subject, company, duration, callOutcome, assignedRep, linkedDealId, callRecording, notes, scheduleFollowUp, followUpType } = activityForm;
+    if (!subject.trim()) { toast.error("Subject is required."); return; }
+    const repId = isRep ? currentUserId : (assignedRep || (users[0] && (users[0].id || users[0]._id)) || currentUserId);
+    if (!repId) { toast.error("Please assign a rep."); return; }
+    const activityDate = toYyyyMmDd(date) || new Date().toISOString().slice(0, 10);
+    const durationNum = parseInt(String(duration).replace(/\D/g, ""), 10) || 0;
+    const payload = {
+      type: activityType,
+      subject: subject.trim(),
+      notes: (notes || subject || "").trim(),
+      date: activityDate,
+      duration: durationNum,
+      outcome: callOutcome || "",
+      company: (company || "").trim() || undefined,
+      recording: (callRecording || "").trim() || undefined,
+      rep: repId,
+      dealId: linkedDealId || undefined,
+      followupDate: scheduleFollowUp && toYyyyMmDd(scheduleFollowUp) ? toYyyyMmDd(scheduleFollowUp) : undefined,
+      followupType: followUpType || undefined,
+    };
+    try {
+      if (editingActivity) {
+        const res = await apiRequest(`/api/v1/activities/${editingActivity.id}`, { method: "PUT", body: payload });
+        setActivities((prev) => prev.map((a) => (a.id === editingActivity.id ? mapActivityToRow(res.activity) : a)));
+        toast.success("Activity updated successfully");
+      } else {
+        const res = await apiRequest("/api/v1/activities", { method: "POST", body: payload });
+        setActivities((prev) => [mapActivityToRow(res.activity), ...prev]);
+        toast.success("Activity logged successfully");
+        if (scheduleFollowUp && toYyyyMmDd(scheduleFollowUp)) {
+          const tasksRes = await apiRequest("/api/v1/tasks?page=1&limit=200").catch(() => ({}));
+          if (tasksRes.tasks) setFollowUpTasks((tasksRes.tasks || []).map(mapTaskToRow));
+        }
+      }
+      setActivityForm(initialActivityForm);
+      setEditingActivity(null);
+      setAddModalOpen(false);
+    } catch (err) {
+      if (err?.status === 401) { clearAuth(); toast.error("Session expired. Please log in again."); navigate("/login", { replace: true }); return; }
+      toast.error(err.message || "Failed to save activity");
+    }
+  };
+
+  const handleSaveTask = async () => {
+    const repId = isRep ? currentUserId : (taskForm.assignedRep || (users[0] && (users[0].id || users[0]._id)) || currentUserId);
+    if (!repId) { toast.error("Please assign a rep."); return; }
+    const due = toYyyyMmDd(taskForm.dueDate) || taskForm.dueDate || new Date().toISOString().slice(0, 10);
+    const payload = {
+      type: taskForm.type || "Task",
+      subject: (taskForm.subject || "").trim() || "Task",
+      company: (taskForm.company || "").trim() || undefined,
+      dueDate: due,
+      priority: taskForm.priority || "Medium",
+      status: taskForm.status || "Pending",
+      rep: repId,
+      dealId: taskForm.linkedDealId || undefined,
+    };
+    try {
+      if (editingTask) {
+        const res = await apiRequest(`/api/v1/tasks/${editingTask.id}`, { method: "PUT", body: payload });
+        setFollowUpTasks((prev) => prev.map((t) => (t.id === editingTask.id ? mapTaskToRow(res.task) : t)));
+        toast.success("Task updated successfully");
+      } else {
+        const res = await apiRequest("/api/v1/tasks", { method: "POST", body: payload });
+        setFollowUpTasks((prev) => [mapTaskToRow(res.task), ...prev]);
+        toast.success("Task created");
+      }
+      setTaskForm(initialTaskForm);
+      setEditingTask(null);
+      setAddTaskOpen(false);
+    } catch (err) {
+      if (err?.status === 401) { clearAuth(); toast.error("Session expired. Please log in again."); navigate("/login", { replace: true }); return; }
+      toast.error(err.message || "Failed to save task");
+    }
+  };
+
+  const handleCompleteTask = async (id) => {
+    try {
+      const res = await apiRequest(`/api/v1/tasks/${id}/complete`, { method: "PATCH" });
+      setFollowUpTasks((prev) => prev.map((t) => (t.id === id ? mapTaskToRow(res.task) : t)));
+      toast.success("Task completed");
+    } catch (err) {
+      if (err?.status === 401) { clearAuth(); toast.error("Session expired. Please log in again."); navigate("/login", { replace: true }); return; }
+      toast.error(err.message || "Failed to complete task");
+    }
+  };
+
+  const closeAddModal = () => { setAddModalOpen(false); setActivityForm(initialActivityForm); setEditingActivity(null); };
+  const closeTaskModal = () => { setAddTaskOpen(false); setEditingTask(null); setTaskForm(initialTaskForm); };
 
   return (
     <>
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 shadow-sm shrink-0">
         <div className="flex items-start gap-3 min-w-0">
-          <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0" aria-hidden>
-            <ClipboardList className="w-5 h-5" strokeWidth={2} />
-          </span>
+          <span className="w-10 h-10 rounded-xl bg-brand-soft flex items-center justify-center text-brand shrink-0" aria-hidden><Activity className="w-5 h-5" strokeWidth={2} /></span>
           <div className="flex flex-col gap-0.5 min-w-0">
             <h1 className="text-lg font-bold text-black leading-tight">Activity Log</h1>
-            <p className="text-[13px] text-black/70">Tasks, follow-ups, and activity history.</p>
+            <p className="text-[13px] text-black/70">Track activities and manage follow-up tasks in one place.</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <input
-            type="search"
-            placeholder="Search CRM..."
-            className="w-64 px-4 py-2 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm"
-          />
-          <button
-            type="button"
-            className="w-10 h-10 rounded-xl bg-brand-soft border border-gray-200 flex items-center justify-center text-body hover:bg-brand-light transition"
-            aria-label="Notifications"
-          >
-            <Bell className="w-5 h-5" strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            onClick={() => { setEditingActivity(null); setShowLogModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
-          >
-            <Plus className="w-4 h-4" strokeWidth={2} />
-            Log Activity
-          </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <input type="search" placeholder="Search anything..." className="w-64 px-4 py-2 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand text-sm" />
+          <button type="button" className="w-10 h-10 rounded-xl bg-brand-soft border border-gray-200 flex items-center justify-center text-body hover:bg-brand-light transition" aria-label="Notifications"><Bell className="w-5 h-5" strokeWidth={2} /></button>
+          <button type="button" onClick={() => { setEditingActivity(null); setActivityForm({ ...initialActivityForm, assignedRep: isRep ? (currentUserId || "") : (users[0] && (users[0]._id || users[0].id)) || "" }); setAddModalOpen(true); }} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"><Plus className="w-4 h-4" strokeWidth={2} /> Log Activity</button>
           <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
             <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
-              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{currentUser.initials || "—"}</div>
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{currentUser.initials}</div>
             </button>
             {profileOpen && (
               <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
                 <div className="px-4 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{currentUser.initials || "—"}</div>
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{currentUser.initials}</div>
                     <div className="min-w-0">
                       <p className="font-bold text-black truncate">{currentUser.name}</p>
                       <p className="text-xs font-medium text-black/70">{currentUser.role}</p>
@@ -801,366 +412,260 @@ export default function ActivityLogPage() {
         </div>
       </header>
 
-      <LogActivityModal
-        open={showLogModal}
-        onClose={() => { setShowLogModal(false); setEditingActivity(null); }}
-        onSave={handleSaveActivity}
-        onSaveFollowUpTask={(t) => setTasks((prev) => [t, ...prev])}
-        activity={editingActivity}
-      />
-      <AddTaskModal
-        open={showAddTaskModal}
-        onClose={() => { setShowAddTaskModal(false); setEditingTask(null); }}
-        onSave={handleSaveTask}
-        task={editingTask}
-      />
-
       <div className="flex-1 min-h-0 p-6 overflow-auto">
-        {/* Summary cards - same style as Finance */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Total Activities</p>
-                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">{activities.length}</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">{stats.total}</p>
                 <p className="text-xs font-medium text-blue-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <ClipboardList className="w-6 h-6 text-blue-700" strokeWidth={2} />
-              </span>
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform"><Activity className="w-6 h-6 text-blue-700" strokeWidth={2} /></span>
             </div>
           </div>
-          <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
+          <div className="group rounded-2xl bg-blue-100 border-2 border-blue-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Calls</p>
-                <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">{calls}</p>
-                <p className="text-xs font-medium text-teal-700/80 mt-1.5">Count</p>
+                <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Calls</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">{stats.calls}</p>
+                <p className="text-xs font-medium text-blue-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-12 h-12 rounded-xl bg-teal-200 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Phone className="w-6 h-6 text-teal-700" strokeWidth={2} />
-              </span>
+              <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform"><Phone className="w-6 h-6 text-blue-700" strokeWidth={2} /></span>
+            </div>
+          </div>
+          <div className="group rounded-2xl bg-violet-100 border-2 border-violet-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-[11px] font-bold text-violet-800 uppercase tracking-wider mb-1.5">Emails</p>
+                <p className="text-2xl font-bold text-violet-900 tabular-nums tracking-tight">{stats.emails}</p>
+                <p className="text-xs font-medium text-violet-700/80 mt-1.5">Count</p>
+              </div>
+              <span className="w-12 h-12 rounded-xl bg-violet-200 flex items-center justify-center group-hover:scale-105 transition-transform"><Mail className="w-6 h-6 text-violet-700" strokeWidth={2} /></span>
             </div>
           </div>
           <div className="group rounded-2xl bg-amber-100 border-2 border-amber-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-1.5">Emails</p>
-                <p className="text-2xl font-bold text-amber-900 tabular-nums tracking-tight">{emails}</p>
+                <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider mb-1.5">Meetings</p>
+                <p className="text-2xl font-bold text-amber-900 tabular-nums tracking-tight">{stats.meetings}</p>
                 <p className="text-xs font-medium text-amber-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-12 h-12 rounded-xl bg-amber-200 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Mail className="w-6 h-6 text-amber-700" strokeWidth={2} />
-              </span>
-            </div>
-          </div>
-          <div className="group rounded-2xl bg-orange-100 border-2 border-orange-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[11px] font-bold text-orange-800 uppercase tracking-wider mb-1.5">Meetings</p>
-                <p className="text-2xl font-bold text-orange-900 tabular-nums tracking-tight">{meetings}</p>
-                <p className="text-xs font-medium text-orange-700/80 mt-1.5">Count</p>
-              </div>
-              <span className="w-12 h-12 rounded-xl bg-orange-200 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Calendar className="w-6 h-6 text-orange-700" strokeWidth={2} />
-              </span>
+              <span className="w-12 h-12 rounded-xl bg-amber-200 flex items-center justify-center group-hover:scale-105 transition-transform"><CalendarDays className="w-6 h-6 text-amber-700" strokeWidth={2} /></span>
             </div>
           </div>
           <div className="group rounded-2xl bg-red-100 border-2 border-red-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-[11px] font-bold text-red-800 uppercase tracking-wider mb-1.5">Overdue Tasks</p>
-                <p className="text-2xl font-bold text-red-900 tabular-nums tracking-tight">{overdueTasks}</p>
+                <p className="text-2xl font-bold text-red-900 tabular-nums tracking-tight">{stats.overdueTasks}</p>
                 <p className="text-xs font-medium text-red-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-12 h-12 rounded-xl bg-red-200 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <AlertCircle className="w-6 h-6 text-red-700" strokeWidth={2} />
-              </span>
+              <span className="w-12 h-12 rounded-xl bg-red-200 flex items-center justify-center group-hover:scale-105 transition-transform"><AlertCircle className="w-6 h-6 text-red-700" strokeWidth={2} /></span>
             </div>
           </div>
           <div className="group rounded-2xl bg-emerald-100 border-2 border-emerald-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider mb-1.5">Pending Tasks</p>
-                <p className="text-2xl font-bold text-emerald-900 tabular-nums tracking-tight">{pendingTasks}</p>
+                <p className="text-2xl font-bold text-emerald-900 tabular-nums tracking-tight">{stats.pendingTasks}</p>
                 <p className="text-xs font-medium text-emerald-700/80 mt-1.5">Count</p>
               </div>
-              <span className="w-12 h-12 rounded-xl bg-emerald-200 flex items-center justify-center group-hover:scale-105 transition-transform">
-                <CheckSquare className="w-6 h-6 text-emerald-700" strokeWidth={2} />
-              </span>
+              <span className="w-12 h-12 rounded-xl bg-emerald-200 flex items-center justify-center group-hover:scale-105 transition-transform"><CheckCircle className="w-6 h-6 text-emerald-700" strokeWidth={2} /></span>
             </div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-4">
-          <button
-            type="button"
-            onClick={() => setActiveTab("log")}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition ${
-              activeTab === "log" ? "bg-brand text-white" : "bg-white border border-gray-200 text-body hover:bg-gray-50"
-            }`}
-          >
-            Activity Log
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("tasks")}
-            className={`px-4 py-2.5 rounded-xl text-sm font-medium transition ${
-              activeTab === "tasks" ? "bg-brand text-white" : "bg-white border border-gray-200 text-body hover:bg-gray-50"
-            }`}
-          >
-            Follow-up Tasks
-          </button>
-        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-body"><span>Loading activities and tasks…</span></div>
+        ) : (
+          <>
+            <div className="border-b border-gray-200 mb-4">
+              <div className="flex gap-6">
+                <button type="button" onClick={() => setActiveTab("log")} className={`flex items-center gap-2 pb-3 text-sm font-medium transition border-b-2 -mb-px ${activeTab === "log" ? "text-brand border-brand" : "text-body border-transparent hover:text-brand-dark"}`}><FileText className="w-4 h-4" strokeWidth={2} /> Activity Log</button>
+                <button type="button" onClick={() => setActiveTab("followups")} className={`flex items-center gap-2 pb-3 text-sm font-medium transition border-b-2 -mb-px ${activeTab === "followups" ? "text-brand border-brand" : "text-body border-transparent hover:text-brand-dark"}`}><Clock className="w-4 h-4" strokeWidth={2} /> Follow-up Tasks</button>
+              </div>
+            </div>
 
-        {/* Activity Log / Follow-up Tasks table */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-base font-semibold text-brand-dark flex items-center gap-2">
-              {activeTab === "log" ? (
-                <>
-                  <ClipboardList className="w-5 h-5 text-brand" strokeWidth={2} />
-                  Activity Log
-                </>
-              ) : (
-                <>
-                  <ListTodo className="w-5 h-5 text-brand" strokeWidth={2} />
-                  Follow-up Tasks
-                </>
-              )}
-            </h2>
-            <div className="flex flex-wrap items-center gap-2">
-              {activeTab === "log" ? (
-                <>
-                  <input
-                    type="search"
-                    placeholder="Search activities..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-sm text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand w-52"
-                  />
-                  <select
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    className="px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-sm text-body focus:outline-none focus:ring-2 focus:ring-brand appearance-none cursor-pointer pr-8"
-                  >
+            {activeTab === "log" && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center gap-2">
+                  <input type="search" placeholder="Search activities..." value={search} onChange={(e) => setSearch(e.target.value)} className="px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-sm text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand w-52" />
+                  <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-sm text-body focus:outline-none focus:ring-2 focus:ring-brand appearance-none cursor-pointer pr-8">
                     <option>All Types</option>
-                    <option>Call</option>
-                    <option>Email</option>
-                    <option>Meeting</option>
+                    <option>Call</option><option>Email</option><option>Meeting</option>
                   </select>
-                </>
-              ) : (
-                <>
-                  <input
-                    type="search"
-                    placeholder="Search tasks..."
-                    value={taskSearch}
-                    onChange={(e) => setTaskSearch(e.target.value)}
-                    className="px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-sm text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand w-52"
-                  />
-                  <select
-                    value={taskStatusFilter}
-                    onChange={(e) => setTaskStatusFilter(e.target.value)}
-                    className="px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-sm text-body focus:outline-none focus:ring-2 focus:ring-brand appearance-none cursor-pointer pr-8"
-                  >
-                    <option>All Status</option>
-                    <option>Pending</option>
-                    <option>Completed</option>
-                    <option>Overdue</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => { setEditingTask(null); setShowAddTaskModal(true); }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
-                  >
-                    <Plus className="w-4 h-4" strokeWidth={2} />
-                    Add Task
-                  </button>
-                </>
-              )}
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-max min-w-[1000px] text-sm table-fixed">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="text-left py-3 px-3 font-semibold text-black">S.No</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Type</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Subject</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Company</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Outcome</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Duration</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Rep</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Deal Linked</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Date</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Recording</th>
+                        <th className="text-center py-3 px-3 font-semibold text-black">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((row, idx) => (
+                        <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                          <td className="py-3 px-3 text-body tabular-nums">{idx + 1}</td>
+                          <td className="py-3 px-3"><span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${TYPE_STYLES[row.type] || "bg-gray-100 text-gray-700"}`}>{row.type}</span></td>
+                          <td className="py-3 px-3 font-medium text-brand-dark truncate" title={row.subject}>{row.subject}</td>
+                          <td className="py-3 px-3 text-body truncate" title={row.company}>{row.company}</td>
+                          <td className="py-3 px-3 text-body">{row.outcome || "—"}</td>
+                          <td className="py-3 px-3 text-body tabular-nums">{row.duration || "—"}</td>
+                          <td className="py-3 px-3"><div className="flex items-center gap-2 min-w-0"><span className="w-8 h-8 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-xs shrink-0">{row.repInitials}</span><span className="text-body truncate min-w-0" title={row.rep}>{row.rep}</span></div></td>
+                          <td className="py-3 px-3 text-body truncate" title={row.dealLinked}>{row.dealLinked}</td>
+                          <td className="py-3 px-3 text-body tabular-nums whitespace-nowrap">{row.date}</td>
+                          <td className="py-3 px-3 text-body truncate" title={row.recording}>{row.recording || "—"}</td>
+                          <td className="py-3 px-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button type="button" onClick={() => openEditActivity(row)} className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition" aria-label="Edit activity"><Pencil className="w-4 h-4" strokeWidth={2} /></button>
+                              {canDelete && <button type="button" onClick={() => handleDelete(row.id)} className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition" aria-label="Delete activity"><Trash2 className="w-4 h-4" strokeWidth={2} /></button>}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {filtered.length === 0 && <div className="py-12 text-center text-body text-sm">No activities match your filters.</div>}
+              </div>
+            )}
+
+            {activeTab === "followups" && (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-4 flex-wrap">
+                  <h2 className="text-base font-semibold text-brand-dark">Follow-up Tasks</h2>
+                  <div className="flex items-center gap-2">
+                    <input type="search" placeholder="Search tasks..." value={taskSearch} onChange={(e) => setTaskSearch(e.target.value)} className="px-3 py-2 rounded-xl bg-brand-soft border border-gray-200 text-sm text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand w-52" />
+                    <button type="button" onClick={openAddTask} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-blue-600 transition"><Plus className="w-4 h-4" strokeWidth={2} /> Add Task</button>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-max min-w-[900px] text-sm table-fixed">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="text-left py-3 px-3 font-semibold text-black">S.No</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Type</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Subject</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Company</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Due Date</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Priority</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Status</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Rep</th>
+                        <th className="text-left py-3 px-3 font-semibold text-black">Deal</th>
+                        <th className="text-center py-3 px-3 font-semibold text-black">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTasks.map((row, idx) => (
+                        <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition">
+                          <td className="py-3 px-3 text-body tabular-nums">{idx + 1}</td>
+                          <td className="py-3 px-3"><span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${TYPE_STYLES[row.type] || "bg-gray-100 text-gray-700"}`}>{row.type}</span></td>
+                          <td className="py-3 px-3 font-medium text-brand-dark truncate" title={row.subject}>{row.subject}</td>
+                          <td className="py-3 px-3 text-body truncate" title={row.company}>{row.company}</td>
+                          <td className="py-3 px-3 font-medium text-red-600 tabular-nums whitespace-nowrap">{row.dueDate}</td>
+                          <td className="py-3 px-3"><span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${PRIORITY_STYLES[row.priority] || "bg-gray-100 text-gray-700"}`}>{row.priority}</span></td>
+                          <td className="py-3 px-3"><span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${TASK_STATUS_STYLES[row.status] || "bg-gray-100 text-gray-700"}`}>{row.status}</span></td>
+                          <td className="py-3 px-3"><div className="flex items-center gap-2 min-w-0"><span className="w-8 h-8 rounded-full bg-[#4A6FB3] flex items-center justify-center text-white font-semibold text-xs shrink-0">{row.repInitials}</span><span className="text-body truncate min-w-0" title={row.rep}>{row.rep}</span></div></td>
+                          <td className="py-3 px-3 text-body truncate" title={row.deal}>{row.deal}</td>
+                          <td className="py-3 px-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button type="button" onClick={() => handleCompleteTask(row.id)} className="inline-flex p-2 rounded-lg text-body hover:bg-emerald-50 hover:text-emerald-600 transition" aria-label="Mark complete" title="Mark complete"><Check className="w-4 h-4" strokeWidth={2} /></button>
+                              <button type="button" onClick={() => openEditTask(row)} className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition" aria-label="Edit task"><Pencil className="w-4 h-4" strokeWidth={2} /></button>
+                              {canDelete && <button type="button" onClick={() => handleDeleteTask(row.id)} className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition" aria-label="Delete task"><Trash2 className="w-4 h-4" strokeWidth={2} /></button>}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {filteredTasks.length === 0 && <div className="py-12 text-center text-body text-sm">No follow-up tasks match your search.</div>}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Log Activity Modal */}
+      {addModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={closeAddModal} aria-hidden />
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-xl border border-gray-100">
+            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+              <h2 className="text-lg font-bold text-brand-dark">{editingActivity ? "Edit Activity" : "Log Activity"}</h2>
+              <button type="button" onClick={closeAddModal} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close"><X className="w-5 h-5" strokeWidth={2} /></button>
+            </div>
+            <div className="px-6 py-5 space-y-6">
+              <div>
+                <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-4 border-b border-brand/30 pb-2">Activity Details</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><label className={labelClass}>Activity type *</label><select value={activityForm.activityType} onChange={(e) => handleActivityFormChange("activityType", e.target.value)} className={inputClass}>{ACTIVITY_TYPES.map((opt) => <option key={opt} value={opt}>{opt}</option>)}</select></div>
+                  <div><label className={labelClass}>Date * (dd-mm-yyyy)</label><input type="text" value={activityForm.date} onChange={(e) => handleActivityFormChange("date", e.target.value)} placeholder="dd-mm-yyyy" className={inputClass} /></div>
+                  <div className="sm:col-span-2"><label className={labelClass}>Subject *</label><input type="text" value={activityForm.subject} onChange={(e) => handleActivityFormChange("subject", e.target.value)} placeholder="Brief activity title" className={inputClass} /></div>
+                  <div><label className={labelClass}>Company</label><input type="text" value={activityForm.company} onChange={(e) => handleActivityFormChange("company", e.target.value)} placeholder="Company name" className={inputClass} /></div>
+                  <div><label className={labelClass}>Duration (mins)</label><input type="text" value={activityForm.duration} onChange={(e) => handleActivityFormChange("duration", e.target.value)} placeholder="0" className={inputClass} /></div>
+                  <div><label className={labelClass}>Call outcome</label><select value={activityForm.callOutcome} onChange={(e) => handleActivityFormChange("callOutcome", e.target.value)} className={inputClass}>{CALL_OUTCOMES.map((opt) => <option key={opt || "_empty"} value={opt}>{opt || "—"}</option>)}</select></div>
+                  {!isRep && users.length > 0 && <div><label className={labelClass}>Rep</label><select value={activityForm.assignedRep} onChange={(e) => handleActivityFormChange("assignedRep", e.target.value)} className={inputClass}>{users.map((u) => <option key={u._id || u.id} value={u._id || u.id}>{u.name || u.email || u._id}</option>)}</select></div>}
+                  <div><label className={labelClass}>Linked deal</label><select value={activityForm.linkedDealId} onChange={(e) => handleActivityFormChange("linkedDealId", e.target.value)} className={inputClass}><option value="">— None —</option>{deals.map((d) => <option key={d._id || d.id} value={d._id || d.id}>{d.title || d.company || d._id}</option>)}</select></div>
+                  <div className="sm:col-span-2"><label className={labelClass}>Call recording (filename)</label><input type="text" value={activityForm.callRecording} onChange={(e) => handleActivityFormChange("callRecording", e.target.value)} placeholder="call-recording-01.mp3" className={inputClass} /></div>
+                  <div className="sm:col-span-2"><label className={labelClass}>Notes *</label><textarea value={activityForm.notes} onChange={(e) => handleActivityFormChange("notes", e.target.value)} placeholder="Notes" rows={3} className={inputClass + " w-full resize-y min-h-[80px]"} /></div>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-brand uppercase tracking-wider mb-4 border-b border-brand/30 pb-2">Follow-up Task</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><label className={labelClass}>Schedule follow-up (dd-mm-yyyy)</label><input type="text" value={activityForm.scheduleFollowUp} onChange={(e) => handleActivityFormChange("scheduleFollowUp", e.target.value)} placeholder="dd-mm-yyyy" className={inputClass} /></div>
+                  <div><label className={labelClass}>Follow-up type</label><select value={activityForm.followUpType} onChange={(e) => handleActivityFormChange("followUpType", e.target.value)} className={inputClass}>{FOLLOW_UP_TYPES.map((opt) => <option key={opt} value={opt}>{opt}</option>)}</select></div>
+                </div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-white">
+              <button type="button" onClick={closeAddModal} className="px-4 py-2.5 rounded-xl text-body font-medium hover:bg-gray-100 transition">Cancel</button>
+              <button type="button" onClick={handleSaveActivity} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-blue-600 transition"><Save className="w-4 h-4" strokeWidth={2} />{editingActivity ? "Save changes" : "Save Activity"}</button>
             </div>
           </div>
-
-          <div className="overflow-x-auto">
-            {activeTab === "log" ? (
-              <table className="w-max min-w-[1000px] text-sm table-fixed">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-right py-3 px-3 font-semibold text-black">S.No</th>
-                    <th className="text-left py-3 px-3 font-semibold text-black">Type</th>
-                    <th className="text-left py-3 px-3 font-semibold text-black">Subject</th>
-                    <th className="text-left py-3 px-3 font-semibold text-black">Company</th>
-                    <th className="text-left py-3 px-3 font-semibold text-black">Outcome</th>
-                    <th className="text-center py-3 px-3 font-semibold text-black">Duration</th>
-                    <th className="text-left py-3 px-3 font-semibold text-black">Rep</th>
-                    <th className="text-left py-3 px-3 font-semibold text-black">Deal Linked</th>
-                    <th className="text-center py-3 px-3 font-semibold text-black">Date</th>
-                    <th className="text-left py-3 px-3 font-semibold text-black">Recording</th>
-                    <th className="text-center py-3 px-3 font-semibold text-black">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((row, idx) => (
-                    <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition text-black">
-                      <td className="py-3 px-3 text-right text-black tabular-nums">{idx + 1}</td>
-                      <td className="py-3 px-3">
-                        <span
-                          className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            TYPE_STYLES[row.type] || "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {row.type}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3">
-                        <div className="min-w-0">
-                          <p className="font-medium text-black truncate" title={row.subject}>{row.subject}</p>
-                          {row.description && (
-                            <p className="text-xs text-gray-500 mt-0.5 truncate" title={row.description}>{row.description}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-3 text-black truncate" title={row.company}>{row.company}</td>
-                      <td className="py-3 px-3 text-black truncate" title={row.outcome}>{row.outcome}</td>
-                      <td className="py-3 px-3 text-center text-black tabular-nums">{row.duration}</td>
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-2">
-                          <span className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold text-xs shrink-0">
-                            {row.repInitials}
-                          </span>
-                          <span className="text-black truncate" title={row.rep}>{row.rep}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-3 text-black truncate" title={row.dealLinked}>{row.dealLinked}</td>
-                      <td className="py-3 px-3 text-center text-black tabular-nums whitespace-nowrap">{row.date}</td>
-                      <td className="py-3 px-3 text-black truncate" title={row.recording}>{row.recording}</td>
-                      <td className="py-3 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => { setEditingActivity(row); setShowLogModal(true); }}
-                            className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
-                            aria-label="Edit activity"
-                          >
-                            <Pencil className="w-4 h-4" strokeWidth={2} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteActivity(row.id)}
-                            className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
-                            aria-label="Delete activity"
-                          >
-                            <Trash2 className="w-4 h-4" strokeWidth={2} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <table className="w-max min-w-[900px] text-sm table-fixed">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-right py-3 px-3 font-semibold text-black">S.No</th>
-                    <th className="text-left py-3 px-3 font-semibold text-black">Type</th>
-                    <th className="text-left py-3 px-3 font-semibold text-black">Subject</th>
-                    <th className="text-left py-3 px-3 font-semibold text-black">Company</th>
-                    <th className="text-center py-3 px-3 font-semibold text-black">Due Date</th>
-                    <th className="text-left py-3 px-3 font-semibold text-black">Priority</th>
-                    <th className="text-left py-3 px-3 font-semibold text-black">Status</th>
-                    <th className="text-left py-3 px-3 font-semibold text-black">Rep</th>
-                    <th className="text-left py-3 px-3 font-semibold text-black">Deal</th>
-                    <th className="text-center py-3 px-3 font-semibold text-black">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTasks.map((row, idx) => (
-                    <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition text-black">
-                      <td className="py-3 px-3 text-right text-black tabular-nums">{idx + 1}</td>
-                      <td className="py-3 px-3">
-                        <span
-                          className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
-                            TYPE_STYLES[row.type] || "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {row.type}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 font-medium text-black truncate" title={row.subject}>{row.subject}</td>
-                      <td className="py-3 px-3 text-black truncate" title={row.company}>{row.company}</td>
-                      <td className="py-3 px-3 text-center text-black tabular-nums whitespace-nowrap">{row.dueDate}</td>
-                      <td className="py-3 px-3">
-                        <span
-                          className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            PRIORITY_STYLES[row.priority] || "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {row.priority}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3">
-                        <span
-                          className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            TASK_STATUS_STYLES[row.status] || "bg-gray-100 text-gray-700"
-                          }`}
-                        >
-                          {row.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-2">
-                          <span className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 font-semibold text-xs shrink-0">
-                            {row.repInitials}
-                          </span>
-                          <span className="text-black truncate" title={row.rep}>{row.rep}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-3 text-black truncate" title={row.deal}>{row.deal}</td>
-                      <td className="py-3 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleCompleteTask(row.id)}
-                            className="inline-flex p-2 rounded-lg text-body hover:bg-gray-100 hover:text-success transition"
-                            aria-label="Mark complete"
-                          >
-                            <CheckSquare className="w-4 h-4" strokeWidth={2} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { setEditingTask(row); setShowAddTaskModal(true); }}
-                            className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
-                            aria-label="Edit task"
-                          >
-                            <Pencil className="w-4 h-4" strokeWidth={2} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteTask(row.id)}
-                            className="inline-flex p-2 rounded-lg text-body hover:bg-red-50 hover:text-danger transition"
-                            aria-label="Delete task"
-                          >
-                            <Trash2 className="w-4 h-4" strokeWidth={2} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-          {activeTab === "log" && filtered.length === 0 && (
-            <div className="py-12 text-center text-body text-sm">No activities match your filters.</div>
-          )}
-          {activeTab === "tasks" && filteredTasks.length === 0 && (
-            <div className="py-12 text-center text-body text-sm">No tasks match your filters.</div>
-          )}
         </div>
-      </div>
+      )}
+
+      {/* Edit / Add Task Modal */}
+      {(editingTask || addTaskOpen) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={closeTaskModal} aria-hidden />
+          <div className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-brand-dark">{editingTask ? "Edit Task" : "Add Task"}</h2>
+              <button type="button" onClick={closeTaskModal} className="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:bg-gray-100 transition" aria-label="Close"><X className="w-5 h-5" strokeWidth={2} /></button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div><label className={labelClass}>Type</label><select value={taskForm.type} onChange={(e) => handleTaskFormChange("type", e.target.value)} className={inputClass}>{FOLLOW_UP_TYPES.map((opt) => <option key={opt} value={opt}>{opt}</option>)}</select></div>
+              <div><label className={labelClass}>Subject</label><input type="text" value={taskForm.subject} onChange={(e) => handleTaskFormChange("subject", e.target.value)} className={inputClass} /></div>
+              <div><label className={labelClass}>Company</label><input type="text" value={taskForm.company} onChange={(e) => handleTaskFormChange("company", e.target.value)} className={inputClass} /></div>
+              <div><label className={labelClass}>Due Date (dd-mm-yyyy)</label><input type="text" value={taskForm.dueDate} onChange={(e) => handleTaskFormChange("dueDate", e.target.value)} placeholder="dd-mm-yyyy" className={inputClass} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className={labelClass}>Priority</label><select value={taskForm.priority} onChange={(e) => handleTaskFormChange("priority", e.target.value)} className={inputClass}>{["High", "Medium", "Low"].map((opt) => <option key={opt} value={opt}>{opt}</option>)}</select></div>
+                <div><label className={labelClass}>Status</label><select value={taskForm.status} onChange={(e) => handleTaskFormChange("status", e.target.value)} className={inputClass}><option value="Pending">Pending</option><option value="Completed">Completed</option></select></div>
+              </div>
+              {!isRep && users.length > 0 && <div><label className={labelClass}>Rep</label><select value={taskForm.assignedRep} onChange={(e) => handleTaskFormChange("assignedRep", e.target.value)} className={inputClass}>{users.map((u) => <option key={u._id || u.id} value={u._id || u.id}>{u.name || u.email || u._id}</option>)}</select></div>}
+              <div><label className={labelClass}>Deal</label><select value={taskForm.linkedDealId} onChange={(e) => handleTaskFormChange("linkedDealId", e.target.value)} className={inputClass}><option value="">— None —</option>{deals.map((d) => <option key={d._id || d.id} value={d._id || d.id}>{d.title || d.company || d._id}</option>)}</select></div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3">
+              <button type="button" onClick={closeTaskModal} className="px-4 py-2.5 rounded-xl text-body font-medium hover:bg-gray-100 transition">Cancel</button>
+              <button type="button" onClick={handleSaveTask} className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 text-white font-semibold hover:bg-blue-600 transition"><Save className="w-4 h-4" strokeWidth={2} />{editingTask ? "Save changes" : "Add Task"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

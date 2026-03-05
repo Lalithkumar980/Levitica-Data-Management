@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   Bell,
@@ -20,20 +21,57 @@ import {
   User,
   LogOut,
 } from "lucide-react";
+import { apiRequest, getStoredUser, getToken, clearAuth } from "../../utils/api";
 
-const ADMIN_USER = { name: "Arjun Kapoor", role: "Admin", email: "admin@levitica.com", initials: "AK" };
+function getInitials(name) {
+  if (!name || typeof name !== "string") return "—";
+  return name.trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+}
 
-const ACTIVITY_TYPES = ["Call", "Email", "Meeting"];
-const CALL_OUTCOMES = ["—", "Voicemail", "Connected - Interested", "Callback Requested", "No Answer", "Other"];
-const REPS = [
-  { name: "Priya Nair", initials: "PN" },
-  { name: "Vikram Joshi", initials: "VJ" },
-  { name: "Meena Reddy", initials: "MR" },
-  { name: "Aditya Kumar", initials: "AK" },
-  { name: "Kavya Shah", initials: "KS" },
-];
-const LINKED_DEALS = ["— None —", "TechNova Enterprise License", "GreenPath Consulting Module", "Horizon Retail Integration", "MediCore Healthcare Module", "EduLeap Education Suite", "FinPlex SaaS Starter"];
-const LINKED_CONTACTS = ["— None —", "Suresh Rajan", "Meena Joshi", "Deepak Verma", "Priya Nair", "Arun Krishnan"];
+function mapActivityToRow(act) {
+  const rep = act.rep && typeof act.rep === "object" ? act.rep : null;
+  const deal = act.dealId && typeof act.dealId === "object" ? act.dealId : null;
+  const dateStr = act.date ? new Date(act.date).toISOString().slice(0, 10) : "—";
+  const durationDisplay = act.duration ? `${act.duration}min` : "";
+  return {
+    id: act._id,
+    type: act.type || "Call",
+    subject: act.subject || "—",
+    company: act.company || "—",
+    outcome: act.outcome || "—",
+    duration: durationDisplay,
+    rep: rep ? rep.name : "—",
+    repInitials: getInitials(rep ? rep.name : ""),
+    repId: rep ? (rep._id || rep.id) : null,
+    dealLinked: deal ? deal.title : "—",
+    dealId: deal ? (deal._id || deal.id) : null,
+    date: dateStr,
+    recording: act.recording || "",
+  };
+}
+
+function mapTaskToRow(task) {
+  const rep = task.rep && typeof task.rep === "object" ? task.rep : null;
+  const deal = task.dealId && typeof task.dealId === "object" ? task.dealId : null;
+  const dueStr = task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 10) : "—";
+  return {
+    id: task._id,
+    type: task.type || "Call",
+    subject: task.subject || "—",
+    company: task.company || "—",
+    dueDate: dueStr,
+    priority: task.priority || "Medium",
+    status: task.status || "Pending",
+    rep: rep ? rep.name : "—",
+    repInitials: getInitials(rep ? rep.name : ""),
+    repId: rep ? (rep._id || rep.id) : null,
+    deal: deal ? deal.title : "—",
+    dealId: deal ? (deal._id || deal.id) : null,
+  };
+}
+
+const ACTIVITY_TYPES = ["Call", "Email", "Meeting", "Demo", "Follow-up", "Note"];
+const CALL_OUTCOMES = ["", "Voicemail", "Connected - Interested", "Callback Requested", "No Answer"];
 const FOLLOW_UP_TYPES = ["Call", "Email", "Meeting", "Follow-up"];
 
 const TYPE_STYLES = {
@@ -52,24 +90,8 @@ const PRIORITY_STYLES = {
 const TASK_STATUS_STYLES = {
   Pending: "bg-amber-100 text-amber-700",
   Done: "bg-emerald-100 text-emerald-700",
+  Completed: "bg-emerald-100 text-emerald-700",
 };
-
-const INITIAL_ACTIVITIES = [
-  { id: 1, type: "Email", subject: "Proposal Sent - GreenPath", company: "GreenPath Solutions", outcome: "", duration: "", rep: "Meena Reddy", repInitials: "MR", dealLinked: "GreenPath Consulting Module", date: "2025-02-18", recording: "" },
-  { id: 2, type: "Call", subject: "Follow-up - GreenPath", company: "GreenPath Solutions", outcome: "Voicemail", duration: "", rep: "Meena Reddy", repInitials: "MR", dealLinked: "GreenPath Consulting Module", date: "2025-02-15", recording: "" },
-  { id: 3, type: "Call", subject: "Negotiation Call - Horizon", company: "Horizon Retail Co", outcome: "Callback Requested", duration: "18min", rep: "Vikram Joshi", repInitials: "VJ", dealLinked: "Horizon Retail Integration", date: "2025-02-10", recording: "" },
-  { id: 4, type: "Meeting", subject: "Product Demo - TechNova", company: "TechNova Pvt Ltd", outcome: "", duration: "60min", rep: "Vikram Joshi", repInitials: "VJ", dealLinked: "TechNova Enterprise License", date: "2025-01-18", recording: "" },
-  { id: 5, type: "Email", subject: "Proposal Follow up Email", company: "TechNova Pvt Ltd", outcome: "", duration: "", rep: "Vikram Joshi", repInitials: "VJ", dealLinked: "TechNova Enterprise License", date: "2025-01-16", recording: "" },
-  { id: 6, type: "Call", subject: "Initial Discovery Call", company: "TechNova Pvt Ltd", outcome: "Connected - Interested", duration: "25min", rep: "Vikram Joshi", repInitials: "VJ", dealLinked: "TechNova Enterprise License", date: "2025-01-15", recording: "" },
-];
-
-const INITIAL_FOLLOWUP_TASKS = [
-  { id: 1, type: "Call", subject: "Follow-up call with Horizon Retail", company: "Horizon Retail Co", dueDate: "2025-02-28", priority: "High", status: "Pending", rep: "Vikram Joshi", repInitials: "VJ", deal: "Horizon Retail Integration" },
-  { id: 2, type: "Call", subject: "Cold call batch - FinPlex", company: "FinPlex Systems", dueDate: "2025-03-01", priority: "Low", status: "Pending", rep: "Kavya Shah", repInitials: "KS", deal: "FinPlex CRM Setup" },
-  { id: 3, type: "Email", subject: "Send revised proposal to GreenPath", company: "GreenPath Solutions", dueDate: "2025-03-01", priority: "High", status: "Pending", rep: "Meena Reddy", repInitials: "MR", deal: "GreenPath Consulting Module" },
-  { id: 4, type: "Meeting", subject: "Demo call - EduLeap", company: "EduLeap Foundation", dueDate: "2025-03-02", priority: "Medium", status: "Pending", rep: "Aditya Kumar", repInitials: "AK", deal: "EduLeap Learning Platform" },
-  { id: 5, type: "Follow-up", subject: "Check in with TechNova renewal", company: "TechNova Pvt Ltd", dueDate: "2025-03-15", priority: "Medium", status: "Pending", rep: "Vikram Joshi", repInitials: "VJ", deal: "TechNova Enterprise License" },
-];
 
 const initialActivityForm = {
   activityType: "Call",
@@ -77,25 +99,32 @@ const initialActivityForm = {
   subject: "",
   company: "",
   duration: "0",
-  callOutcome: "—",
-  rep: "Priya Nair",
-  linkedDeal: "— None —",
-  linkedContact: "— None —",
+  callOutcome: "",
+  assignedRep: "",
+  linkedDealId: "",
+  linkedContactId: "",
   callRecording: "",
   notes: "",
   scheduleFollowUp: "",
   followUpType: "Call",
 };
 
-const initialTaskForm = { type: "Call", subject: "", company: "", dueDate: "", priority: "Medium", status: "Pending", rep: "Priya Nair", deal: "" };
+const initialTaskForm = { type: "Call", subject: "", company: "", dueDate: "", priority: "Medium", status: "Pending", assignedRep: "", linkedDealId: "" };
 
 export default function AdminActivityLogPage() {
-  const [activities, setActivities] = useState(INITIAL_ACTIVITIES);
-  const [followUpTasks, setFollowUpTasks] = useState(INITIAL_FOLLOWUP_TASKS);
+  const navigate = useNavigate();
+  const storedUser = getStoredUser();
+  const adminUser = storedUser ? { name: storedUser.name || "Admin", role: storedUser.role || "Admin", email: storedUser.email || "", initials: getInitials(storedUser.name) } : { name: "Admin", role: "Admin", email: "", initials: "AD" };
+
+  const [activities, setActivities] = useState([]);
+  const [followUpTasks, setFollowUpTasks] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [deals, setDeals] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("All Types");
   const [taskSearch, setTaskSearch] = useState("");
-  const [activeTab, setActiveTab] = useState("log"); // "log" | "followups"
+  const [activeTab, setActiveTab] = useState("log");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [activityForm, setActivityForm] = useState(initialActivityForm);
   const [editingActivity, setEditingActivity] = useState(null);
@@ -103,6 +132,48 @@ export default function AdminActivityLogPage() {
   const [taskForm, setTaskForm] = useState(initialTaskForm);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+
+  useEffect(() => {
+    if (!getToken()) {
+      toast.info("Please log in to manage activities.");
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    let cancelled = false;
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [activitiesRes, tasksRes, usersRes, dealsRes] = await Promise.all([
+          apiRequest("/api/v1/activities?page=1&limit=200"),
+          apiRequest("/api/v1/tasks?page=1&limit=200"),
+          apiRequest("/api/v1/admin/users").catch((e) => { if (e?.status === 401) throw e; return { users: [] }; }),
+          apiRequest("/api/v1/deals?page=1&limit=200").catch(() => ({ deals: [] })),
+        ]);
+        if (cancelled) return;
+        setActivities((activitiesRes.activities || []).map(mapActivityToRow));
+        setFollowUpTasks((tasksRes.tasks || []).map(mapTaskToRow));
+        setUsers(usersRes.users || []);
+        setDeals(dealsRes.deals || []);
+      } catch (err) {
+        if (cancelled) return;
+        if (err?.status === 401) {
+          clearAuth();
+          toast.error("Session expired. Please log in again.");
+          navigate("/login", { replace: true });
+          return;
+        }
+        toast.error(err.message || "Failed to load data");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -122,46 +193,69 @@ export default function AdminActivityLogPage() {
     return matchSearch && matchType;
   });
 
+  const now = new Date().toISOString().slice(0, 10);
+  const overdueCount = followUpTasks.filter((t) => t.status === "Pending" && t.dueDate !== "—" && t.dueDate < now).length;
   const stats = {
     total: activities.length,
     calls: activities.filter((a) => a.type === "Call").length,
     emails: activities.filter((a) => a.type === "Email").length,
     meetings: activities.filter((a) => a.type === "Meeting").length,
-    overdueTasks: 5,
-    pendingTasks: 5,
+    overdueTasks: overdueCount,
+    pendingTasks: followUpTasks.filter((t) => t.status === "Pending").length,
   };
 
   const filteredTasks = followUpTasks.filter(
     (row) =>
       !taskSearch ||
-      row.subject.toLowerCase().includes(taskSearch.toLowerCase()) ||
-      row.company.toLowerCase().includes(taskSearch.toLowerCase()) ||
-      row.deal.toLowerCase().includes(taskSearch.toLowerCase())
+      (row.subject || "").toLowerCase().includes(taskSearch.toLowerCase()) ||
+      (row.company || "").toLowerCase().includes(taskSearch.toLowerCase()) ||
+      (row.deal || "").toLowerCase().includes(taskSearch.toLowerCase())
   );
 
-  const handleDelete = (id) => {
-    setActivities((prev) => prev.filter((a) => a.id !== id));
-    toast.success("Activity deleted");
+  const handleDelete = async (id) => {
+    try {
+      await apiRequest(`/api/v1/activities/${id}`, { method: "DELETE" });
+      setActivities((prev) => prev.filter((a) => a.id !== id));
+      toast.success("Activity deleted");
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to delete activity");
+    }
   };
 
-  const handleDeleteTask = (id) => {
-    setFollowUpTasks((prev) => prev.filter((t) => t.id !== id));
-    toast.success("Task deleted");
+  const handleDeleteTask = async (id) => {
+    try {
+      await apiRequest(`/api/v1/tasks/${id}`, { method: "DELETE" });
+      setFollowUpTasks((prev) => prev.filter((t) => t.id !== id));
+      toast.success("Task deleted");
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to delete task");
+    }
   };
 
   const openEditActivity = (row) => {
     setActivityForm({
       activityType: row.type || "Call",
-      date: row.date ? row.date.split("-").reverse().join("-") : "",
-      subject: row.subject || "",
-      company: row.company || "",
-      duration: row.duration || "0",
-      callOutcome: row.outcome || "—",
-      rep: row.rep || "Priya Nair",
-      linkedDeal: row.dealLinked === "—" ? "— None —" : row.dealLinked || "— None —",
-      linkedContact: "— None —",
+      date: row.date && row.date !== "—" ? row.date : "",
+      subject: row.subject === "—" ? "" : row.subject,
+      company: row.company === "—" ? "" : row.company,
+      duration: row.duration ? String(row.duration).replace("min", "") : "0",
+      callOutcome: row.outcome === "—" ? "" : row.outcome,
+      assignedRep: row.repId || (users[0] && (users[0].id || users[0]._id)) || "",
+      linkedDealId: row.dealId || "",
       callRecording: row.recording || "",
-      notes: row.subject || "",
+      notes: row.subject === "—" ? "" : row.subject,
       scheduleFollowUp: "",
       followUpType: "Call",
     });
@@ -173,13 +267,13 @@ export default function AdminActivityLogPage() {
     setEditingTask(row);
     setTaskForm({
       type: row.type || "Call",
-      subject: row.subject || "",
-      company: row.company || "",
-      dueDate: row.dueDate || "",
+      subject: row.subject === "—" ? "" : row.subject,
+      company: row.company === "—" ? "" : row.company,
+      dueDate: row.dueDate && row.dueDate !== "—" ? row.dueDate : "",
       priority: row.priority || "Medium",
       status: row.status || "Pending",
-      rep: row.rep || "Priya Nair",
-      deal: row.deal || "",
+      assignedRep: row.repId || (users[0] && (users[0].id || users[0]._id)) || "",
+      linkedDealId: row.dealId || "",
     });
   };
 
@@ -187,25 +281,54 @@ export default function AdminActivityLogPage() {
     setTaskForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveTaskEdit = () => {
+  const handleSaveTaskEdit = async () => {
     if (!editingTask) return;
-    const repEntry = REPS.find((r) => r.name === taskForm.rep) || REPS[0];
-    setFollowUpTasks((prev) =>
-      prev.map((t) =>
-        t.id === editingTask.id
-          ? { ...t, ...taskForm, repInitials: repEntry.initials }
-          : t
-      )
-    );
-    setEditingTask(null);
-    setTaskForm(initialTaskForm);
-    toast.success("Task updated successfully");
+    const repId = taskForm.assignedRep || (users[0] && (users[0].id || users[0]._id));
+    if (!repId) {
+      toast.error("Please assign a rep.");
+      return;
+    }
+    const payload = {
+      type: taskForm.type || "Task",
+      subject: taskForm.subject.trim() || "—",
+      company: taskForm.company.trim() || undefined,
+      dueDate: taskForm.dueDate || new Date().toISOString().slice(0, 10),
+      priority: taskForm.priority || "Medium",
+      status: taskForm.status || "Pending",
+      rep: repId,
+      dealId: taskForm.linkedDealId || undefined,
+    };
+    try {
+      const res = await apiRequest(`/api/v1/tasks/${editingTask.id}`, { method: "PUT", body: payload });
+      setFollowUpTasks((prev) => prev.map((t) => (t.id === editingTask.id ? mapTaskToRow(res.task) : t)));
+      setEditingTask(null);
+      setTaskForm(initialTaskForm);
+      toast.success("Task updated successfully");
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to update task");
+    }
   };
 
-  const handleCompleteTask = (id) => {
-    setFollowUpTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: "Done" } : t))
-    );
+  const handleCompleteTask = async (id) => {
+    try {
+      const res = await apiRequest(`/api/v1/tasks/${id}/complete`, { method: "PATCH" });
+      setFollowUpTasks((prev) => prev.map((t) => (t.id === id ? mapTaskToRow(res.task) : t)));
+      toast.success("Task completed");
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to complete task");
+    }
   };
 
   const toYyyyMmDd = (ddMmYyyy) => {
@@ -218,51 +341,59 @@ export default function AdminActivityLogPage() {
     setActivityForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveActivity = () => {
-    const { activityType, date, subject, company, duration, callOutcome, rep, linkedDeal, linkedContact, callRecording, notes, scheduleFollowUp, followUpType } = activityForm;
-    if (!subject.trim() || !notes.trim()) return;
-    const repEntry = REPS.find((r) => r.name === rep) || REPS[0];
+  const handleSaveActivity = async () => {
+    const { activityType, date, subject, company, duration, callOutcome, assignedRep, linkedDealId, callRecording, notes, scheduleFollowUp, followUpType } = activityForm;
+    if (!subject.trim()) {
+      toast.error("Subject is required.");
+      return;
+    }
+    const repId = assignedRep || (users[0] && (users[0].id || users[0]._id));
+    if (!repId) {
+      toast.error("Please assign a rep.");
+      return;
+    }
     const activityDate = toYyyyMmDd(date) || new Date().toISOString().slice(0, 10);
-    const dealLinked = linkedDeal === "— None —" ? "" : linkedDeal;
-    const durationDisplay = duration && duration !== "0" ? `${duration}min` : "";
+    const durationNum = parseInt(String(duration).replace(/\D/g, ""), 10) || 0;
     const payload = {
       type: activityType,
       subject: subject.trim(),
-      company: company.trim() || "—",
-      outcome: callOutcome === "—" ? "" : callOutcome,
-      duration: durationDisplay,
-      rep: repEntry.name,
-      repInitials: repEntry.initials,
-      dealLinked: dealLinked || "—",
+      notes: (notes || subject || "").trim(),
       date: activityDate,
-      recording: callRecording.trim() || "",
+      duration: durationNum,
+      outcome: callOutcome || "",
+      company: (company || "").trim() || undefined,
+      recording: (callRecording || "").trim() || undefined,
+      rep: repId,
+      dealId: linkedDealId || undefined,
+      followupDate: scheduleFollowUp && toYyyyMmDd(scheduleFollowUp) ? toYyyyMmDd(scheduleFollowUp) : undefined,
+      followupType: followUpType || undefined,
     };
-    if (editingActivity) {
-      setActivities((prev) => prev.map((a) => (a.id === editingActivity.id ? { ...payload, id: a.id } : a)));
-      setEditingActivity(null);
-      toast.success("Activity updated successfully");
-    } else {
-      setActivities((prev) => [{ ...payload, id: Math.max(0, ...activities.map((a) => a.id)) + 1 }, ...prev]);
-      toast.success("Activity logged successfully");
+    try {
+      if (editingActivity) {
+        const res = await apiRequest(`/api/v1/activities/${editingActivity.id}`, { method: "PUT", body: payload });
+        setActivities((prev) => prev.map((a) => (a.id === editingActivity.id ? mapActivityToRow(res.activity) : a)));
+        setEditingActivity(null);
+        toast.success("Activity updated successfully");
+      } else {
+        const res = await apiRequest("/api/v1/activities", { method: "POST", body: payload });
+        setActivities((prev) => [mapActivityToRow(res.activity), ...prev]);
+        toast.success("Activity logged successfully");
+        if (scheduleFollowUp && toYyyyMmDd(scheduleFollowUp)) {
+          const tasksRes = await apiRequest("/api/v1/tasks?page=1&limit=200").catch(() => ({}));
+          if (tasksRes.tasks) setFollowUpTasks((tasksRes.tasks || []).map(mapTaskToRow));
+        }
+      }
+      setActivityForm(initialActivityForm);
+      setAddModalOpen(false);
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to save activity");
     }
-    if (!editingActivity && scheduleFollowUp && toYyyyMmDd(scheduleFollowUp)) {
-      const followUpDate = toYyyyMmDd(scheduleFollowUp);
-      const newTask = {
-        id: Math.max(0, ...followUpTasks.map((t) => t.id)) + 1,
-        type: followUpType,
-        subject: `Follow-up: ${subject.trim()}`,
-        company: company.trim() || "—",
-        dueDate: followUpDate,
-        priority: "Medium",
-        status: "Pending",
-        rep: repEntry.name,
-        repInitials: repEntry.initials,
-        deal: dealLinked || "—",
-      };
-      setFollowUpTasks((prev) => [newTask, ...prev]);
-    }
-    setActivityForm(initialActivityForm);
-    setAddModalOpen(false);
   };
 
   const closeAddModal = () => {
@@ -298,7 +429,7 @@ export default function AdminActivityLogPage() {
           </button>
           <button
             type="button"
-            onClick={() => { setEditingActivity(null); setActivityForm(initialActivityForm); setAddModalOpen(true); }}
+            onClick={() => { setEditingActivity(null); setActivityForm({ ...initialActivityForm, assignedRep: users[0] ? (users[0]._id || users[0].id) : "" }); setAddModalOpen(true); }}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-bold hover:bg-blue-600 transition"
           >
             <Plus className="w-4 h-4" strokeWidth={2} />
@@ -306,17 +437,17 @@ export default function AdminActivityLogPage() {
           </button>
           <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
             <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
-              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{ADMIN_USER.initials}</div>
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{adminUser.initials}</div>
             </button>
             {profileOpen && (
               <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
                 <div className="px-4 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{ADMIN_USER.initials}</div>
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{adminUser.initials}</div>
                     <div className="min-w-0">
-                      <p className="font-bold text-black truncate">{ADMIN_USER.name}</p>
-                      <p className="text-xs font-medium text-black/70">{ADMIN_USER.role}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{ADMIN_USER.email}</p>
+                      <p className="font-bold text-black truncate">{adminUser.name}</p>
+                      <p className="text-xs font-medium text-black/70">{adminUser.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{adminUser.email}</p>
                     </div>
                   </div>
                 </div>
@@ -325,7 +456,7 @@ export default function AdminActivityLogPage() {
                     <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
                     My Profile
                   </button>
-                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
+                  <button type="button" onClick={() => { clearAuth(); navigate("/login"); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
                     <LogOut className="w-4 h-4" strokeWidth={2} />
                     Log out
                   </button>
@@ -413,6 +544,12 @@ export default function AdminActivityLogPage() {
           </div>
         </div>
 
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-body">
+            <span>Loading activities and tasks…</span>
+          </div>
+        ) : (
+        <>
         {/* Tabs */}
         <div className="border-b border-gray-200 mb-4">
           <div className="flex gap-6">
@@ -647,6 +784,8 @@ export default function AdminActivityLogPage() {
             )}
           </div>
         )}
+        </>
+        )}
       </div>
 
       {/* Log Activity Modal */}
@@ -733,44 +872,43 @@ export default function AdminActivityLogPage() {
                       className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                     >
                       {CALL_OUTCOMES.map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
+                        <option key={opt || "_empty"} value={opt}>{opt || "—"}</option>
                       ))}
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Rep</label>
                     <select
-                      value={activityForm.rep}
-                      onChange={(e) => handleActivityFormChange("rep", e.target.value)}
+                      value={activityForm.assignedRep}
+                      onChange={(e) => handleActivityFormChange("assignedRep", e.target.value)}
                       className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                     >
-                      {REPS.map((r) => (
-                        <option key={r.initials} value={r.name}>{r.name}</option>
+                      {users.map((u) => (
+                        <option key={u._id || u.id} value={u._id || u.id}>{u.name || u.email || u._id}</option>
                       ))}
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Linked deal</label>
                     <select
-                      value={activityForm.linkedDeal}
-                      onChange={(e) => handleActivityFormChange("linkedDeal", e.target.value)}
+                      value={activityForm.linkedDealId}
+                      onChange={(e) => handleActivityFormChange("linkedDealId", e.target.value)}
                       className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                     >
-                      {LINKED_DEALS.map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
+                      <option value="">— None —</option>
+                      {deals.map((d) => (
+                        <option key={d._id || d.id} value={d._id || d.id}>{d.title || d.company || d._id}</option>
                       ))}
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Linked contact</label>
                     <select
-                      value={activityForm.linkedContact}
-                      onChange={(e) => handleActivityFormChange("linkedContact", e.target.value)}
+                      value={activityForm.linkedContactId || ""}
+                      onChange={(e) => handleActivityFormChange("linkedContactId", e.target.value)}
                       className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                     >
-                      {LINKED_CONTACTS.map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
+                      <option value="">— None —</option>
                     </select>
                   </div>
                   <div className="sm:col-span-2">
@@ -889,19 +1027,22 @@ export default function AdminActivityLogPage() {
                   <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Status</label>
                   <select value={taskForm.status} onChange={(e) => handleTaskFormChange("status", e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand text-sm appearance-none cursor-pointer pr-10">
                     <option value="Pending">Pending</option>
-                    <option value="Done">Done</option>
+                    <option value="Completed">Completed</option>
                   </select>
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Rep</label>
-                <select value={taskForm.rep} onChange={(e) => handleTaskFormChange("rep", e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand text-sm appearance-none cursor-pointer pr-10">
-                  {REPS.map((r) => <option key={r.initials} value={r.name}>{r.name}</option>)}
+                <select value={taskForm.assignedRep} onChange={(e) => handleTaskFormChange("assignedRep", e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand text-sm appearance-none cursor-pointer pr-10">
+                  {users.map((u) => <option key={u._id || u.id} value={u._id || u.id}>{u.name || u.email || u._id}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Deal</label>
-                <input type="text" value={taskForm.deal} onChange={(e) => handleTaskFormChange("deal", e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand text-sm" />
+                <select value={taskForm.linkedDealId} onChange={(e) => handleTaskFormChange("linkedDealId", e.target.value)} className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand text-sm appearance-none cursor-pointer pr-10">
+                  <option value="">— None —</option>
+                  {deals.map((d) => <option key={d._id || d.id} value={d._id || d.id}>{d.title || d.company || d._id}</option>)}
+                </select>
               </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-end gap-3">

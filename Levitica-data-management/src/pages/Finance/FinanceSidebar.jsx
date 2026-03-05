@@ -8,6 +8,7 @@ import {
   BarChart3,
   LogOut,
 } from "lucide-react";
+import { getStoredUser, clearAuth } from "../../utils/api";
 
 export default function FinanceSidebar() {
   const navigate = useNavigate();
@@ -15,13 +16,18 @@ export default function FinanceSidebar() {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("levitica_user_role");
-      if (stored) setRoleLabel(stored);
+      const user = getStoredUser();
+      if (user?.role) setRoleLabel(user.role);
+      else {
+        const stored = localStorage.getItem("levitica_user_role");
+        if (stored) setRoleLabel(stored);
+      }
     } catch (_) {}
   }, []);
 
   const handleSignOut = () => {
-    navigate("/");
+    clearAuth();
+    navigate("/login");
   };
 
   return (

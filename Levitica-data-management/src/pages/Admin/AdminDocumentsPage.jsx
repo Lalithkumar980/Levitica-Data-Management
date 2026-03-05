@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   Bell,
@@ -17,11 +18,34 @@ import {
   User,
   LogOut,
 } from "lucide-react";
+import { apiRequest, getStoredUser, getToken, clearAuth } from "../../utils/api";
 
-const ADMIN_USER = { name: "Arjun Kapoor", role: "Admin", email: "admin@levitica.com", initials: "AK" };
+function getInitials(name) {
+  if (!name || typeof name !== "string") return "—";
+  return name.trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+}
 
-const LINKED_DEALS = ["— None —", "TechNova Enterprise License", "GreenPath Consulting Module", "Horizon Retail Integration", "MediCore Healthcare Module", "EduLeap Education Suite", "FinPlex SaaS Starter"];
-const LINKED_CONTACTS = ["— None —", "Suresh Rajan", "Meena Joshi", "Deepak Verma", "Priya Nair", "Arun Krishnan"];
+/** Map backend document to row. */
+function mapDocumentToRow(doc) {
+  const uploader = doc.uploadedBy && typeof doc.uploadedBy === "object" ? doc.uploadedBy : null;
+  const deal = doc.dealId && typeof doc.dealId === "object" ? doc.dealId : null;
+  const dateStr = doc.date ? new Date(doc.date).toISOString().slice(0, 10) : "—";
+  return {
+    id: doc._id,
+    fileName: doc.name || "—",
+    type: doc.type || "Document",
+    company: doc.company || "—",
+    linkedDeal: deal ? deal.title : "—",
+    dealId: deal ? (deal._id || deal.id) : null,
+    uploadedBy: uploader ? uploader.name : "—",
+    uploadedByInitials: getInitials(uploader ? uploader.name : ""),
+    date: dateStr,
+    size: doc.size || "—",
+    notes: doc.notes || "—",
+    isPdf: (doc.name || "").toLowerCase().endsWith(".pdf"),
+  };
+}
+
 const FILE_TYPES = ["Document", "Proposal", "Call Recording", "Contract"];
 
 function formatFileSize(bytes) {
@@ -38,27 +62,25 @@ const TYPE_STYLES = {
   "Call Recording": "bg-amber-100 text-amber-700",
 };
 
-const INITIAL_DOCUMENTS = [
-  { id: 1, fileName: "TechNova_Enterprise_Proposal.pdf", type: "Proposal", company: "TechNova Pvt Ltd", linkedDeal: "TechNova Enterprise License", uploadedBy: "Vikram Joshi", uploadedByInitials: "VJ", date: "2025-01-17", size: "2.4 MB", notes: "Final accepted proposal", isPdf: true },
-  { id: 2, fileName: "MediCore Contract Signed.pdf", type: "Contract", company: "MediCore India", linkedDeal: "MediCore Healthcare Platform", uploadedBy: "Aditya Kumar", uploadedByInitials: "AK", date: "2025-02-20", size: "2.8 MB", notes: "Executed 2-year contract", isPdf: true },
-  { id: 3, fileName: "Discovery_Call_TechNova.mp3", type: "Call Recording", company: "TechNova Pvt Ltd", linkedDeal: "TechNova Enterprise License", uploadedBy: "Vikram Joshi", uploadedByInitials: "VJ", date: "2025-01-15", size: "8.2 MB", notes: "Initial discovery call", isPdf: false },
-  { id: 4, fileName: "Horizon_Negotiation_Call.mp3", type: "Call Recording", company: "Horizon Retail Co", linkedDeal: "Horizon Retail Integration", uploadedBy: "Vikram Joshi", uploadedByInitials: "VJ", date: "2025-02-18", size: "5.7 MB", notes: "Discount discussion call", isPdf: false },
-  { id: 5, fileName: "GreenPath_Proposal_v2.pdf", type: "Proposal", company: "GreenPath Solutions", linkedDeal: "GreenPath Consulting Module", uploadedBy: "Meena Reddy", uploadedByInitials: "MR", date: "2025-02-18", size: "2.2 MB", notes: "Revised proposal with payment terms", isPdf: true },
-];
-
 const initialUploadForm = {
   fileName: "",
   fileType: "Document",
   company: "",
   fileSize: "",
-  linkedDeal: "— None —",
-  linkedContact: "— None —",
+  linkedDealId: "",
+  linkedContactId: "",
   uploadDate: "",
   notes: "",
 };
 
 export default function AdminDocumentsPage() {
-  const [documents, setDocuments] = useState(INITIAL_DOCUMENTS);
+  const navigate = useNavigate();
+  const storedUser = getStoredUser();
+  const adminUser = storedUser ? { name: storedUser.name || "Admin", role: storedUser.role || "Admin", email: storedUser.email || "", initials: getInitials(storedUser.name) } : { name: "Admin", role: "Admin", email: "", initials: "AD" };
+
+  const [documents, setDocuments] = useState([]);
+  const [deals, setDeals] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("All Types");
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
@@ -70,6 +92,44 @@ export default function AdminDocumentsPage() {
   const [viewingDocument, setViewingDocument] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+
+  useEffect(() => {
+    if (!getToken()) {
+      toast.info("Please log in to manage documents.");
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    let cancelled = false;
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [docsRes, dealsRes] = await Promise.all([
+          apiRequest("/api/v1/documents?page=1&limit=200"),
+          apiRequest("/api/v1/deals?page=1&limit=200").catch(() => ({ deals: [] })),
+        ]);
+        if (cancelled) return;
+        setDocuments((docsRes.documents || []).map(mapDocumentToRow));
+        setDeals(dealsRes.deals || []);
+      } catch (err) {
+        if (cancelled) return;
+        if (err?.status === 401) {
+          clearAuth();
+          toast.error("Session expired. Please log in again.");
+          navigate("/login", { replace: true });
+          return;
+        }
+        toast.error(err.message || "Failed to load documents");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -94,21 +154,31 @@ export default function AdminDocumentsPage() {
   const proposals = documents.filter((d) => d.type === "Proposal").length;
   const contracts = documents.filter((d) => d.type === "Contract").length;
 
-  const handleDelete = (id) => {
-    setDocuments((prev) => prev.filter((d) => d.id !== id));
-    toast.success("Document deleted");
+  const handleDelete = async (id) => {
+    try {
+      await apiRequest(`/api/v1/documents/${id}`, { method: "DELETE" });
+      setDocuments((prev) => prev.filter((d) => d.id !== id));
+      toast.success("Document deleted");
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to delete document");
+    }
   };
 
   const openEditDocument = (row) => {
     setUploadForm({
-      fileName: row.fileName || "",
+      fileName: row.fileName === "—" ? "" : row.fileName,
       fileType: row.type || "Document",
-      company: row.company || "",
-      fileSize: row.size || "",
-      linkedDeal: row.linkedDeal === "—" ? "— None —" : row.linkedDeal || "— None —",
-      linkedContact: "— None —",
-      uploadDate: row.date ? row.date.split("-").reverse().join("-") : "",
-      notes: row.notes || "—",
+      company: row.company === "—" ? "" : row.company,
+      fileSize: row.size === "—" ? "" : row.size,
+      linkedDealId: row.dealId || "",
+      uploadDate: row.date && row.date !== "—" ? row.date : "",
+      notes: row.notes === "—" ? "" : row.notes,
     });
     setEditingDocument(row);
     setUploadModalOpen(true);
@@ -144,36 +214,46 @@ export default function AdminDocumentsPage() {
     handleFileSelect(e.dataTransfer?.files?.[0]);
   };
 
-  const handleSaveUpload = () => {
-    const { fileName, fileType, company, fileSize, linkedDeal, linkedContact, uploadDate, notes } = uploadForm;
-    if (!fileName.trim()) return;
-    const date = toYyyyMmDd(uploadDate) || new Date().toISOString().slice(0, 10);
-    const deal = linkedDeal === "— None —" ? "—" : linkedDeal;
-    const ext = (fileName.split(".").pop() || "").toLowerCase();
-    const isPdf = ext === "pdf";
-    const payload = {
-      fileName: fileName.trim(),
-      type: fileType,
-      company: company.trim() || "—",
-      linkedDeal: deal || "—",
-      uploadedBy: editingDocument ? editingDocument.uploadedBy : "Priya Nair",
-      uploadedByInitials: editingDocument ? editingDocument.uploadedByInitials : "PN",
-      date,
-      size: fileSize || "—",
-      notes: notes.trim() || "—",
-      isPdf,
-    };
-    if (editingDocument) {
-      setDocuments((prev) => prev.map((d) => (d.id === editingDocument.id ? { ...payload, id: d.id } : d)));
-      setEditingDocument(null);
-      toast.success("Document updated successfully");
-    } else {
-      setDocuments((prev) => [{ ...payload, id: Math.max(0, ...documents.map((d) => d.id)) + 1 }, ...prev]);
-      toast.success("Document uploaded successfully");
+  const handleSaveUpload = async () => {
+    const { fileName, fileType, company, fileSize, linkedDealId, uploadDate, notes } = uploadForm;
+    if (!fileName.trim()) {
+      toast.error("File name is required");
+      return;
     }
-    setUploadForm(initialUploadForm);
-    setSelectedFile(null);
-    setUploadModalOpen(false);
+    const date = uploadDate ? new Date(toYyyyMmDd(uploadDate)).toISOString() : new Date().toISOString();
+    const payload = {
+      name: fileName.trim(),
+      type: fileType,
+      company: company.trim() || undefined,
+      size: fileSize || undefined,
+      url: selectedFile ? undefined : "#", // placeholder when no real upload
+      dealId: linkedDealId || undefined,
+      date,
+      notes: notes.trim() || undefined,
+    };
+    try {
+      if (editingDocument) {
+        const res = await apiRequest(`/api/v1/documents/${editingDocument.id}`, { method: "PUT", body: payload });
+        setDocuments((prev) => prev.map((d) => (d.id === editingDocument.id ? mapDocumentToRow(res.document) : d)));
+        toast.success("Document updated successfully");
+      } else {
+        const res = await apiRequest("/api/v1/documents", { method: "POST", body: payload });
+        setDocuments((prev) => [mapDocumentToRow(res.document), ...prev]);
+        toast.success("Document added successfully");
+      }
+      setUploadForm(initialUploadForm);
+      setSelectedFile(null);
+      setUploadModalOpen(false);
+      setEditingDocument(null);
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to save document");
+    }
   };
 
   const closeUploadModal = () => {
@@ -219,17 +299,17 @@ export default function AdminDocumentsPage() {
           </button>
           <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
             <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
-              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{ADMIN_USER.initials}</div>
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{adminUser.initials}</div>
             </button>
             {profileOpen && (
               <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
                 <div className="px-4 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{ADMIN_USER.initials}</div>
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{adminUser.initials}</div>
                     <div className="min-w-0">
-                      <p className="font-bold text-black truncate">{ADMIN_USER.name}</p>
-                      <p className="text-xs font-medium text-black/70">{ADMIN_USER.role}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{ADMIN_USER.email}</p>
+                      <p className="font-bold text-black truncate">{adminUser.name}</p>
+                      <p className="text-xs font-medium text-black/70">{adminUser.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{adminUser.email}</p>
                     </div>
                   </div>
                 </div>
@@ -238,7 +318,7 @@ export default function AdminDocumentsPage() {
                     <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
                     My Profile
                   </button>
-                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
+                  <button type="button" onClick={() => { clearAuth(); navigate("/login"); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
                     <LogOut className="w-4 h-4" strokeWidth={2} />
                     Log out
                   </button>
@@ -331,6 +411,10 @@ export default function AdminDocumentsPage() {
             </div>
           </div>
 
+          {loading ? (
+            <div className="py-12 text-center text-body text-sm">Loading documents…</div>
+          ) : (
+          <React.Fragment>
           <div className="overflow-x-auto">
             <table className="w-max min-w-[1000px] text-sm table-fixed">
               <thead>
@@ -423,6 +507,8 @@ export default function AdminDocumentsPage() {
           {filtered.length === 0 && (
             <div className="py-12 text-center text-body text-sm">No documents match your filters.</div>
           )}
+          </React.Fragment>
+          )}
         </div>
       </div>
 
@@ -504,12 +590,13 @@ export default function AdminDocumentsPage() {
                 <div>
                   <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Linked deal</label>
                   <select
-                    value={uploadForm.linkedDeal}
-                    onChange={(e) => handleUploadFormChange("linkedDeal", e.target.value)}
+                    value={uploadForm.linkedDealId}
+                    onChange={(e) => handleUploadFormChange("linkedDealId", e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                   >
-                    {LINKED_DEALS.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
+                    <option value="">— None —</option>
+                    {deals.map((d) => (
+                      <option key={d._id || d.id} value={d._id || d.id}>{d.title || d.company || d._id}</option>
                     ))}
                   </select>
                 </div>
@@ -526,13 +613,11 @@ export default function AdminDocumentsPage() {
                 <div>
                   <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Linked contact</label>
                   <select
-                    value={uploadForm.linkedContact}
-                    onChange={(e) => handleUploadFormChange("linkedContact", e.target.value)}
+                    value={uploadForm.linkedContactId || ""}
+                    onChange={(e) => handleUploadFormChange("linkedContactId", e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                   >
-                    {LINKED_CONTACTS.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
+                    <option value="">— None —</option>
                   </select>
                 </div>
                 <div className="sm:col-span-2">

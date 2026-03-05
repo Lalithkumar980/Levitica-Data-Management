@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   Bell,
@@ -12,32 +13,52 @@ import {
   User,
   LogOut,
 } from "lucide-react";
+import { apiRequest, getStoredUser, getToken, clearAuth } from "../../utils/api";
 
-const ADMIN_USER = { name: "Arjun Kapoor", role: "Admin", email: "admin@levitica.com", initials: "AK" };
+function getInitials(name) {
+  if (!name || typeof name !== "string") return "—";
+  return name.trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+}
+
+/** Map backend company to table row. */
+function mapCompanyToRow(company, ownerList = []) {
+  let owner = company.owner && typeof company.owner === "object" ? company.owner : null;
+  if (!owner && company.owner && ownerList.length) {
+    const id = typeof company.owner === "string" ? company.owner : company.owner?.toString?.();
+    owner = ownerList.find((u) => (u.id || u._id) === id) ? { _id: id, name: ownerList.find((u) => (u.id || u._id) === id).name } : null;
+  }
+  const contactsCount = Array.isArray(company.contacts) ? company.contacts.length : 0;
+  const dealsCount = Array.isArray(company.deals) ? company.deals.length : 0;
+  const revenue = company.revenue != null ? company.revenue : 0;
+  const annualRevenue = revenue === 0 ? "₹0" : `₹${Number(revenue).toLocaleString("en-IN")}`;
+  return {
+    id: company._id,
+    ownerId: owner ? (owner._id || owner.id) : (company.owner && typeof company.owner === "string" ? company.owner : null),
+    name: company.name || "—",
+    description: company.notes || "—",
+    industry: company.industry || "—",
+    city: company.city || "—",
+    website: company.website || "—",
+    employees: company.employees != null ? String(company.employees) : "0",
+    annualRevenue,
+    status: company.status || "Lead",
+    owner: owner ? owner.name : "—",
+    ownerInitials: getInitials(owner ? owner.name : ""),
+    contacts: contactsCount,
+    deals: dealsCount,
+  };
+}
 
 const INDUSTRIES = ["Technology", "Consulting", "Retail", "Healthcare", "Education", "Finance", "Manufacturing", "Other"];
 const COUNTRIES = ["India", "USA", "UK", "UAE", "Singapore", "Other"];
-const STATUS_OPTIONS = ["Lead", "Prospect", "Customer"];
-const OWNERS = [
-  { name: "Priya Nair", initials: "PN" },
-  { name: "Vikram Joshi", initials: "VJ" },
-  { name: "Meena Reddy", initials: "MR" },
-  { name: "Aditya Kumar", initials: "AK" },
-  { name: "Kavya Shah", initials: "KS" },
-];
+const STATUS_OPTIONS = ["Lead", "Prospect", "Customer", "Partner"];
 
 const STATUS_STYLES = {
   Lead: "bg-blue-100 text-blue-700",
   Customer: "bg-emerald-100 text-emerald-700",
   Prospect: "bg-amber-100 text-amber-700",
+  Partner: "bg-violet-100 text-violet-700",
 };
-
-const INITIAL_COMPANIES = [
-  { id: 1, name: "TechNova Pvt Ltd", description: "Enterprise client", industry: "Technology", city: "Bangalore", website: "technova.com", employees: "250", annualRevenue: "₹5,00,00,000", status: "Customer", owner: "Vikram Joshi", ownerInitials: "VJ", contacts: 1, deals: 1 },
-  { id: 2, name: "GreenPath Solutions", description: "Growing consultancy", industry: "Consulting", city: "Mumbai", website: "greenpath.in", employees: "80", annualRevenue: "₹1,50,00,000", status: "Prospect", owner: "Meena Reddy", ownerInitials: "MR", contacts: 1, deals: 1 },
-  { id: 3, name: "Horizon Retail Co", description: "Large retail chain", industry: "Retail", city: "Delhi", website: "horizon.co", employees: "500", annualRevenue: "₹12,00,00,000", status: "Prospect", owner: "Vikram Joshi", ownerInitials: "VJ", contacts: 1, deals: 1 },
-  { id: 4, name: "MediCore India", description: "Healthcare leader", industry: "Healthcare", city: "Ahmedabad", website: "medicore.in", employees: "350", annualRevenue: "₹8,00,00,000", status: "Customer", owner: "Aditya Kumar", ownerInitials: "AK", contacts: 1, deals: 1 },
-];
 
 const initialCompanyForm = {
   companyName: "",
@@ -49,12 +70,18 @@ const initialCompanyForm = {
   employees: "0",
   annualRevenue: "0",
   status: "Lead",
-  owner: "Priya Nair",
+  assignedTo: "",
   notes: "",
 };
 
 export default function AdminCompaniesPage() {
-  const [companies, setCompanies] = useState(INITIAL_COMPANIES);
+  const navigate = useNavigate();
+  const storedUser = getStoredUser();
+  const adminUser = storedUser ? { name: storedUser.name || "Admin", role: storedUser.role || "Admin", email: storedUser.email || "", initials: getInitials(storedUser.name) } : { name: "Admin", role: "Admin", email: "", initials: "AD" };
+
+  const [companies, setCompanies] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [companyForm, setCompanyForm] = useState(initialCompanyForm);
@@ -62,6 +89,47 @@ export default function AdminCompaniesPage() {
   const [viewingCompany, setViewingCompany] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+
+  useEffect(() => {
+    if (!getToken()) {
+      toast.info("Please log in to manage companies.");
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    let cancelled = false;
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [companiesRes, usersRes] = await Promise.all([
+          apiRequest("/api/v1/companies?page=1&limit=200"),
+          apiRequest("/api/v1/admin/users").catch((e) => {
+            if (e?.status === 401) throw e;
+            return { users: [] };
+          }),
+        ]);
+        if (cancelled) return;
+        setCompanies((companiesRes.companies || []).map((c) => mapCompanyToRow(c)));
+        setUsers(usersRes.users || []);
+      } catch (err) {
+        if (cancelled) return;
+        if (err?.status === 401) {
+          clearAuth();
+          toast.error("Session expired. Please log in again.");
+          navigate("/login", { replace: true });
+          return;
+        }
+        toast.error(err.message || "Failed to load companies");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -79,24 +147,35 @@ export default function AdminCompaniesPage() {
       row.city.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleDelete = (id) => {
-    setCompanies((prev) => prev.filter((c) => c.id !== id));
-    toast.success("Company deleted");
+  const handleDelete = async (id) => {
+    try {
+      await apiRequest(`/api/v1/companies/${id}`, { method: "DELETE" });
+      setCompanies((prev) => prev.filter((c) => c.id !== id));
+      toast.success("Company deleted");
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to delete company");
+    }
   };
 
   const openEditCompany = (row) => {
     setCompanyForm({
-      companyName: row.name || "",
-      industry: row.industry || "Technology",
-      website: row.website || "",
+      companyName: row.name === "—" ? "" : row.name,
+      industry: row.industry === "—" ? "Technology" : row.industry,
+      website: row.website === "—" ? "" : row.website,
       phone: "",
-      city: (row.city || "").split(",")[0]?.trim() || row.city || "",
+      city: row.city === "—" ? "" : row.city,
       country: "India",
       employees: row.employees || "0",
       annualRevenue: (row.annualRevenue || "0").replace(/[₹,]/g, "").trim() || "0",
       status: row.status || "Lead",
-      owner: row.owner || OWNERS[0]?.name || "",
-      notes: row.description || "",
+      assignedTo: row.ownerId || (users[0] && (users[0].id || users[0]._id)) || "",
+      notes: row.description === "—" ? "" : row.description,
     });
     setEditingCompany(row);
     setAddModalOpen(true);
@@ -108,36 +187,55 @@ export default function AdminCompaniesPage() {
     setCompanyForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveCompany = () => {
-    const { companyName, industry, website, phone, city, country, employees, annualRevenue, status, owner, notes } = companyForm;
-    if (!companyName.trim()) return;
-    const ownerEntry = OWNERS.find((o) => o.name === owner) || OWNERS[0];
-    const revenueVal = annualRevenue.trim() || "0";
-    const revenueDisplay = revenueVal === "0" ? "₹0" : `₹${Number(revenueVal).toLocaleString("en-IN")}`;
+  const handleSaveCompany = async () => {
+    const { companyName, industry, website, phone, city, country, employees, annualRevenue, status, assignedTo, notes } = companyForm;
+    if (!companyName.trim()) {
+      toast.error("Company name is required");
+      return;
+    }
+    const ownerId = assignedTo || (users[0] && (users[0].id || users[0]._id));
+    if (!ownerId && !editingCompany) {
+      toast.error("Please assign an owner (ensure users are loaded).");
+      return;
+    }
+    const revenueVal = parseInt(String(annualRevenue).replace(/[₹,\s]/g, ""), 10) || 0;
     const payload = {
       name: companyName.trim(),
-      description: notes.trim().slice(0, 50) || "—",
-      industry,
-      city: city.trim() || "—",
-      website: website.trim() || "—",
-      employees: employees.trim() || "0",
-      annualRevenue: revenueDisplay,
-      status,
-      owner: ownerEntry.name,
-      ownerInitials: ownerEntry.initials,
-      contacts: editingCompany ? editingCompany.contacts : 0,
-      deals: editingCompany ? editingCompany.deals : 0,
+      industry: industry || undefined,
+      city: city.trim() || undefined,
+      country: (country && country.trim()) || "India",
+      website: website.trim() || undefined,
+      phone: phone.trim() || undefined,
+      employees: parseInt(employees, 10) || 0,
+      revenue: revenueVal,
+      status: status || "Lead",
+      notes: notes.trim() || undefined,
+      owner: ownerId,
     };
-    if (editingCompany) {
-      setCompanies((prev) => prev.map((c) => (c.id === editingCompany.id ? { ...c, ...payload, id: c.id } : c)));
+    try {
+      if (editingCompany) {
+        const res = await apiRequest(`/api/v1/companies/${editingCompany.id}`, { method: "PUT", body: payload });
+        const updated = mapCompanyToRow({ ...res.company, _id: res.company._id, owner: res.company.owner }, users);
+        setCompanies((prev) => prev.map((c) => (c.id === editingCompany.id ? updated : c)));
+        toast.success("Company updated successfully");
+      } else {
+        const res = await apiRequest("/api/v1/companies", { method: "POST", body: payload });
+        const created = mapCompanyToRow({ ...res.company, _id: res.company._id, owner: res.company.owner }, users);
+        setCompanies((prev) => [created, ...prev]);
+        toast.success("Company added successfully");
+      }
+      setCompanyForm(initialCompanyForm);
       setEditingCompany(null);
-      toast.success("Company updated successfully");
-    } else {
-      setCompanies((prev) => [{ ...payload, id: Math.max(0, ...companies.map((c) => c.id)) + 1 }, ...prev]);
-      toast.success("Company added successfully");
+      setAddModalOpen(false);
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to save company");
     }
-    setCompanyForm(initialCompanyForm);
-    setAddModalOpen(false);
   };
 
   const closeAddModal = () => {
@@ -181,17 +279,17 @@ export default function AdminCompaniesPage() {
           </button>
           <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
             <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
-              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{ADMIN_USER.initials}</div>
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{adminUser.initials}</div>
             </button>
             {profileOpen && (
               <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
                 <div className="px-4 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{ADMIN_USER.initials}</div>
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{adminUser.initials}</div>
                     <div className="min-w-0">
-                      <p className="font-bold text-black truncate">{ADMIN_USER.name}</p>
-                      <p className="text-xs font-medium text-black/70">{ADMIN_USER.role}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{ADMIN_USER.email}</p>
+                      <p className="font-bold text-black truncate">{adminUser.name}</p>
+                      <p className="text-xs font-medium text-black/70">{adminUser.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{adminUser.email}</p>
                     </div>
                   </div>
                 </div>
@@ -200,7 +298,7 @@ export default function AdminCompaniesPage() {
                     <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
                     My Profile
                   </button>
-                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
+                  <button type="button" onClick={() => { clearAuth(); navigate("/login"); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
                     <LogOut className="w-4 h-4" strokeWidth={2} />
                     Log out
                   </button>
@@ -227,6 +325,10 @@ export default function AdminCompaniesPage() {
             />
           </div>
 
+          {loading ? (
+            <div className="py-12 text-center text-body text-sm">Loading companies…</div>
+          ) : (
+          <React.Fragment>
           <div className="overflow-x-auto">
             <table className="w-max min-w-[1100px] text-sm table-fixed">
               <thead>
@@ -316,6 +418,8 @@ export default function AdminCompaniesPage() {
           </div>
           {filtered.length === 0 && (
             <div className="py-12 text-center text-body text-sm">No companies match your search.</div>
+          )}
+          </React.Fragment>
           )}
         </div>
       </div>
@@ -438,12 +542,13 @@ export default function AdminCompaniesPage() {
                 <div>
                   <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Owner</label>
                   <select
-                    value={companyForm.owner}
-                    onChange={(e) => handleCompanyFormChange("owner", e.target.value)}
+                    value={companyForm.assignedTo}
+                    onChange={(e) => handleCompanyFormChange("assignedTo", e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                   >
-                    {OWNERS.map((o) => (
-                      <option key={o.initials} value={o.name}>{o.name}</option>
+                    <option value="">Select owner</option>
+                    {users.map((u) => (
+                      <option key={u.id || u._id} value={u.id || u._id}>{u.name || u.email || u.id}</option>
                     ))}
                   </select>
                 </div>

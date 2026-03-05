@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   Bell,
@@ -14,40 +15,96 @@ import {
   User,
   LogOut,
 } from "lucide-react";
+import { apiRequest, getStoredUser, getToken, clearAuth } from "../../utils/api";
 
-const ADMIN_USER = { name: "Arjun Kapoor", role: "Admin", email: "admin@levitica.com", initials: "AK" };
+function getInitials(name) {
+  if (!name || typeof name !== "string") return "—";
+  return name.trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+}
 
-const REPS = [
-  { name: "Priya Nair", initials: "PN" },
-  { name: "Vikram Joshi", initials: "VJ" },
-  { name: "Meena Reddy", initials: "MR" },
-  { name: "Aditya Kumar", initials: "AK" },
-  { name: "Kavya Shah", initials: "KS" },
-];
-const LINKED_DEALS = ["— None —", "TechNova Enterprise License", "GreenPath Consulting Module", "Horizon Retail Integration", "MediCore Healthcare Module", "EduLeap Education Suite", "FinPlex SaaS Starter"];
+/** Map backend activity (Email) to row. */
+function mapEmailToRow(act) {
+  const rep = act.rep && typeof act.rep === "object" ? act.rep : null;
+  const deal = act.dealId && typeof act.dealId === "object" ? act.dealId : null;
+  const dateStr = act.date ? new Date(act.date).toISOString().slice(0, 10) : "—";
+  return {
+    id: act._id,
+    date: dateStr,
+    subject: act.subject || "—",
+    company: act.company || "—",
+    rep: rep ? rep.name : "—",
+    repInitials: getInitials(rep ? rep.name : ""),
+    repId: rep ? (rep._id || rep.id) : null,
+    deal: deal ? deal.title : "—",
+    dealId: deal ? (deal._id || deal.id) : null,
+    notes: act.notes || "—",
+  };
+}
 
 const initialEmailForm = {
   subject: "",
   date: "",
   company: "",
-  rep: "Priya Nair",
-  linkedDeal: "— None —",
+  assignedRep: "",
+  linkedDealId: "",
   notes: "",
 };
 
-const INITIAL_EMAILS = [
-  { id: 1, date: "2025-02-18", subject: "Proposal Sent - GreenPath", company: "GreenPath Solutions", rep: "Meena Reddy", repInitials: "MR", deal: "GreenPath Consulting Module", notes: "Emailed proposal with payment terms and timeline. Awaiting response." },
-  { id: 2, date: "2025-01-16", subject: "Proposal Follow-up Email", company: "TechNova Pvt Ltd", rep: "Vikram Joshi", repInitials: "VJ", deal: "TechNova Enterprise License", notes: "Sent detailed pricing sheet and implementation timeline. Follow-up call scheduled." },
-];
-
 export default function AdminEmailLogPage() {
-  const [emails, setEmails] = useState(INITIAL_EMAILS);
+  const navigate = useNavigate();
+  const storedUser = getStoredUser();
+  const adminUser = storedUser ? { name: storedUser.name || "Admin", role: storedUser.role || "Admin", email: storedUser.email || "", initials: getInitials(storedUser.name) } : { name: "Admin", role: "Admin", email: "", initials: "AD" };
+
+  const [emails, setEmails] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [deals, setDeals] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [emailForm, setEmailForm] = useState(initialEmailForm);
   const [editingEmail, setEditingEmail] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+
+  useEffect(() => {
+    if (!getToken()) {
+      toast.info("Please log in to manage email log.");
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!getToken()) return;
+    let cancelled = false;
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [emailsRes, usersRes, dealsRes] = await Promise.all([
+          apiRequest("/api/v1/activities/emails"),
+          apiRequest("/api/v1/admin/users").catch((e) => { if (e?.status === 401) throw e; return { users: [] }; }),
+          apiRequest("/api/v1/deals?page=1&limit=200").catch(() => ({ deals: [] })),
+        ]);
+        if (cancelled) return;
+        setEmails((emailsRes.activities || []).map(mapEmailToRow));
+        setUsers(usersRes.users || []);
+        setDeals(dealsRes.deals || []);
+      } catch (err) {
+        if (cancelled) return;
+        if (err?.status === 401) {
+          clearAuth();
+          toast.error("Session expired. Please log in again.");
+          navigate("/login", { replace: true });
+          return;
+        }
+        toast.error(err.message || "Failed to load emails");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => { cancelled = true; };
+  }, [navigate]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -66,26 +123,38 @@ export default function AdminEmailLogPage() {
   );
 
   const thisMonth = emails.filter((e) => {
+    if (!e.date || e.date === "—") return false;
     const [y, m] = e.date.split("-").map(Number);
     const now = new Date();
     return y === now.getFullYear() && m === now.getMonth() + 1;
   }).length;
 
-  const linkedToDeals = emails.filter((e) => e.deal).length;
+  const linkedToDeals = emails.filter((e) => e.deal && e.deal !== "—").length;
 
-  const handleDelete = (id) => {
-    setEmails((prev) => prev.filter((e) => e.id !== id));
-    toast.success("Email log deleted");
+  const handleDelete = async (id) => {
+    try {
+      await apiRequest(`/api/v1/activities/${id}`, { method: "DELETE" });
+      setEmails((prev) => prev.filter((e) => e.id !== id));
+      toast.success("Email log deleted");
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to delete email");
+    }
   };
 
   const openEditEmail = (row) => {
     setEmailForm({
-      subject: row.subject || "",
-      date: row.date ? row.date.split("-").reverse().join("-") : "",
-      company: row.company || "",
-      rep: row.rep || "Priya Nair",
-      linkedDeal: row.deal === "—" ? "— None —" : row.deal || "— None —",
-      notes: row.notes || "—",
+      subject: row.subject === "—" ? "" : row.subject,
+      date: row.date && row.date !== "—" ? row.date : "",
+      company: row.company === "—" ? "" : row.company,
+      assignedRep: row.repId || (users[0] && (users[0].id || users[0]._id)) || "",
+      linkedDealId: row.dealId || "",
+      notes: row.notes === "—" ? "" : row.notes,
     });
     setEditingEmail(row);
     setAddModalOpen(true);
@@ -101,31 +170,49 @@ export default function AdminEmailLogPage() {
     setEmailForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveEmail = () => {
-    const { subject, date, company, rep, linkedDeal, notes } = emailForm;
-    if (!subject.trim()) return;
-    const repEntry = REPS.find((r) => r.name === rep) || REPS[0];
-    const emailDate = toYyyyMmDd(date) || new Date().toISOString().slice(0, 10);
-    const deal = linkedDeal === "— None —" ? "—" : linkedDeal;
-    const payload = {
-      date: emailDate,
-      subject: subject.trim(),
-      company: company.trim() || "—",
-      rep: repEntry.name,
-      repInitials: repEntry.initials,
-      deal: deal || "—",
-      notes: notes.trim() || "—",
-    };
-    if (editingEmail) {
-      setEmails((prev) => prev.map((e) => (e.id === editingEmail.id ? { ...payload, id: e.id } : e)));
-      setEditingEmail(null);
-      toast.success("Email log updated successfully");
-    } else {
-      setEmails((prev) => [{ ...payload, id: Math.max(0, ...emails.map((e) => e.id)) + 1 }, ...prev]);
-      toast.success("Email log added successfully");
+  const handleSaveEmail = async () => {
+    const { subject, date, company, assignedRep, linkedDealId, notes } = emailForm;
+    if (!subject.trim()) {
+      toast.error("Subject is required");
+      return;
     }
-    setEmailForm(initialEmailForm);
-    setAddModalOpen(false);
+    const repId = assignedRep || (users[0] && (users[0].id || users[0]._id));
+    if (!repId) {
+      toast.error("Please assign a rep.");
+      return;
+    }
+    const emailDate = toYyyyMmDd(date) || new Date().toISOString().slice(0, 10);
+    const payload = {
+      type: "Email",
+      subject: subject.trim(),
+      notes: (notes && notes.trim()) || "—",
+      date: emailDate,
+      company: company.trim() || undefined,
+      rep: repId,
+      dealId: linkedDealId || undefined,
+    };
+    try {
+      if (editingEmail) {
+        const res = await apiRequest(`/api/v1/activities/${editingEmail.id}`, { method: "PUT", body: payload });
+        setEmails((prev) => prev.map((e) => (e.id === editingEmail.id ? mapEmailToRow(res.activity) : e)));
+        toast.success("Email log updated successfully");
+      } else {
+        const res = await apiRequest("/api/v1/activities", { method: "POST", body: payload });
+        setEmails((prev) => [mapEmailToRow(res.activity), ...prev]);
+        toast.success("Email log added successfully");
+      }
+      setEmailForm(initialEmailForm);
+      setEditingEmail(null);
+      setAddModalOpen(false);
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to save email");
+    }
   };
 
   const closeAddModal = () => {
@@ -169,17 +256,17 @@ export default function AdminEmailLogPage() {
           </button>
           <div className="relative pl-3 ml-1 border-l border-gray-200" ref={profileRef}>
             <button type="button" onClick={() => setProfileOpen((o) => !o)} className="flex items-center gap-3 rounded-lg py-1 pr-1 hover:bg-gray-50 transition" aria-expanded={profileOpen} aria-haspopup="true">
-              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{ADMIN_USER.initials}</div>
+              <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">{adminUser.initials}</div>
             </button>
             {profileOpen && (
               <div className="absolute right-0 top-full mt-2 w-72 rounded-xl bg-white border border-gray-200 shadow-lg py-3 z-50">
                 <div className="px-4 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{ADMIN_USER.initials}</div>
+                    <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">{adminUser.initials}</div>
                     <div className="min-w-0">
-                      <p className="font-bold text-black truncate">{ADMIN_USER.name}</p>
-                      <p className="text-xs font-medium text-black/70">{ADMIN_USER.role}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{ADMIN_USER.email}</p>
+                      <p className="font-bold text-black truncate">{adminUser.name}</p>
+                      <p className="text-xs font-medium text-black/70">{adminUser.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{adminUser.email}</p>
                     </div>
                   </div>
                 </div>
@@ -188,7 +275,7 @@ export default function AdminEmailLogPage() {
                     <User className="w-4 h-4 text-gray-500" strokeWidth={2} />
                     My Profile
                   </button>
-                  <button type="button" onClick={() => (window.location.href = "/")} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
+                  <button type="button" onClick={() => { clearAuth(); navigate("/login"); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left">
                     <LogOut className="w-4 h-4" strokeWidth={2} />
                     Log out
                   </button>
@@ -266,6 +353,10 @@ export default function AdminEmailLogPage() {
             />
           </div>
 
+          {loading ? (
+            <div className="py-12 text-center text-body text-sm">Loading emails…</div>
+          ) : (
+          <React.Fragment>
           <div className="overflow-x-auto">
             <table className="w-max min-w-[800px] text-sm table-fixed">
               <thead>
@@ -327,6 +418,8 @@ export default function AdminEmailLogPage() {
           {filtered.length === 0 && (
             <div className="py-12 text-center text-body text-sm">No emails match your search.</div>
           )}
+          </React.Fragment>
+          )}
         </div>
       </div>
 
@@ -385,24 +478,26 @@ export default function AdminEmailLogPage() {
                 <div>
                   <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Rep</label>
                   <select
-                    value={emailForm.rep}
-                    onChange={(e) => handleEmailFormChange("rep", e.target.value)}
+                    value={emailForm.assignedRep}
+                    onChange={(e) => handleEmailFormChange("assignedRep", e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                   >
-                    {REPS.map((r) => (
-                      <option key={r.initials} value={r.name}>{r.name}</option>
+                    <option value="">Select rep</option>
+                    {users.map((u) => (
+                      <option key={u.id || u._id} value={u.id || u._id}>{u.name || u.email || u.id}</option>
                     ))}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-medium text-body uppercase tracking-wider mb-1.5">Linked deal</label>
                   <select
-                    value={emailForm.linkedDeal}
-                    onChange={(e) => handleEmailFormChange("linkedDeal", e.target.value)}
+                    value={emailForm.linkedDealId}
+                    onChange={(e) => handleEmailFormChange("linkedDealId", e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm appearance-none cursor-pointer pr-10"
                   >
-                    {LINKED_DEALS.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
+                    <option value="">— None —</option>
+                    {deals.map((d) => (
+                      <option key={d._id || d.id} value={d._id || d.id}>{d.title || d.company || d._id}</option>
                     ))}
                   </select>
                 </div>

@@ -43,11 +43,13 @@ export function getStoredUser() {
  */
 export async function apiRequest(path, options = {}) {
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
-  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  const isFormData = options.body instanceof FormData;
+  const headers = { ...options.headers };
+  if (!isFormData) headers['Content-Type'] = 'application/json';
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   const config = { ...options, headers };
-  if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
+  if (config.body && typeof config.body === 'object' && !isFormData) {
     config.body = JSON.stringify(config.body);
   }
   const res = await fetch(url, config);

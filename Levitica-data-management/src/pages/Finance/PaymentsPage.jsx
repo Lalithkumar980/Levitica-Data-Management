@@ -1,11 +1,37 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import { Bell, Receipt, Plus, Download, Pencil, X, Save, Wallet, Hash, Calendar, User, LogOut } from "lucide-react";
+import { apiRequest, getStoredUser, getToken, clearAuth } from "../../utils/api";
 
 const inputClass = "w-full px-3 py-2.5 rounded-xl bg-brand-soft border border-gray-200 text-body placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm";
 const labelClass = "block text-xs font-medium text-body uppercase tracking-wider mb-1.5";
 
 const formatINR = (n) => (n == null || isNaN(n) ? "0" : "₹" + Number(n).toLocaleString("en-IN"));
 const parseINR = (str) => parseFloat(String(str ?? "").replace(/[₹,\s]/g, "")) || 0;
+
+function getInitials(name) {
+  if (!name || typeof name !== "string") return "—";
+  return name.trim().split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+}
+
+function toISODate(s) {
+  if (!s || s === "-") return undefined;
+  const parts = String(s).trim().split(/[-/]/);
+  if (parts.length === 3) {
+    const [a, b, c] = parts;
+    if (a.length === 4) return `${a}-${b.padStart(2, "0")}-${c.padStart(2, "0")}`;
+    return `${c}-${b.padStart(2, "0")}-${a.padStart(2, "0")}`;
+  }
+  return s;
+}
+
+function formatDate(v) {
+  if (v == null || v === "" || v === "-") return "-";
+  const d = typeof v === "string" ? new Date(v) : v;
+  if (isNaN(d.getTime())) return "-";
+  return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
+}
 
 const getDefaultForm = (todayStr) => ({
   client: "",
@@ -26,15 +52,15 @@ function RecordPaymentModal({ open, onClose, onSave, payment: editingPayment }) 
   useEffect(() => {
     if (!open) return;
     if (editingPayment) {
-      const amount = parseINR(editingPayment.amount);
+      const amount = typeof editingPayment.amount === "number" ? editingPayment.amount : parseINR(editingPayment.amount);
       setForm({
-        client: editingPayment.client,
+        client: editingPayment.client || "",
         amount: amount > 0 ? String(amount) : "",
-        date: editingPayment.date === "-" ? todayStr : editingPayment.date,
-        paymentMethod: editingPayment.method === "-" ? "" : editingPayment.method,
-        referenceNo: editingPayment.referenceNo === "-" ? "" : editingPayment.referenceNo,
-        invoiceRef: editingPayment.invoiceRef === "-" ? "INV-2025-001" : editingPayment.invoiceRef,
-        notes: editingPayment.notes === "-" ? "" : editingPayment.notes,
+        date: !editingPayment.date || editingPayment.date === "-" ? todayStr : formatDate(editingPayment.date),
+        paymentMethod: (editingPayment.method || editingPayment.paymentMethod) === "-" || !(editingPayment.method || editingPayment.paymentMethod) ? "" : (editingPayment.method || editingPayment.paymentMethod),
+        referenceNo: !editingPayment.referenceNo || editingPayment.referenceNo === "-" ? "" : editingPayment.referenceNo,
+        invoiceRef: !editingPayment.invoiceRef || editingPayment.invoiceRef === "-" ? "INV-2025-001" : editingPayment.invoiceRef,
+        notes: !editingPayment.notes || editingPayment.notes === "-" ? "" : editingPayment.notes,
       });
     } else {
       setForm(getDefaultForm(todayStr));
@@ -134,30 +160,71 @@ function RecordPaymentModal({ open, onClose, onSave, payment: editingPayment }) 
   );
 }
 
-const INITIAL_PAYMENTS = [
-  { id: 1, client: "TechNova Pvt Ltd", amount: "₹10,03,000", date: "2025-01-28", method: "Bank Transfer", referenceNo: "NEFT/TN/202501280", invoiceRef: "Inv1", notes: "Full payment received" },
-  { id: 2, client: "MediCore India", amount: "₹10,85,600", date: "2025-02-25", method: "UPI", referenceNo: "UPI-MC-20250225", invoiceRef: "Inv2", notes: "Training fee - Full Stack" },
-  { id: 3, client: "Mohit Gupta", amount: "₹35,100", date: "2025-02-10", method: "Credit Card", referenceNo: "CC-MG-20250210", invoiceRef: "Inv5", notes: "First installment 50%" },
-  { id: 4, client: "Ratul MaxGroup", amount: "₹29,500", date: "2025-02-06", method: "Bank Transfer", referenceNo: "NEFT-RM-20250206", invoiceRef: "Inv6", notes: "Onboarding fee" },
-  { id: 5, client: "Lata Krishnan", amount: "₹29,500", date: "2025-02-05", method: "UPI", referenceNo: "UPI-LK-20250205", invoiceRef: "Inv6", notes: "Certification program" },
-  { id: 6, client: "EduLearn Pvt Ltd", amount: "₹54,150", date: "2025-02-18", method: "Bank Transfer", referenceNo: "NEFT-EL-20250218", invoiceRef: "Inv8", notes: "Corporate training batch" },
-  { id: 7, client: "Dev Mahajan & Co", amount: "₹14,000", date: "2025-01-20", method: "UPI", referenceNo: "UPI-DM-20250120", invoiceRef: "Inv3", notes: "Partial - training advance" },
-];
-
-const USER_PROFILE = {
-  name: "Suresh Agarwal",
-  role: "Finance Manager",
-  email: "suresh.agarwal@company.com",
-  initials: "SA",
-};
+function paymentToRow(doc) {
+  return {
+    _id: doc._id,
+    id: doc._id,
+    client: doc.client,
+    amount: formatINR(doc.amount),
+    amountNum: doc.amount != null ? Number(doc.amount) : 0,
+    date: doc.date ? formatDate(doc.date) : "-",
+    method: doc.method || "-",
+    referenceNo: doc.referenceNo || "-",
+    invoiceRef: doc.invoiceRef || "-",
+    notes: doc.notes || "-",
+  };
+}
 
 export default function PaymentsPage() {
-  const [payments, setPayments] = useState(INITIAL_PAYMENTS);
+  const navigate = useNavigate();
+  const storedUser = getStoredUser();
+  const currentUser = storedUser ? { name: storedUser.name || "User", role: storedUser.role || "Finance Management", email: storedUser.email || "", initials: getInitials(storedUser.name) } : { name: "User", role: "Finance Management", email: "", initials: "—" };
+
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(false);
   const [editingPayment, setEditingPayment] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+  const errorToastShownRef = useRef(false);
+
+  useEffect(() => {
+    if (!getToken()) {
+      toast.info("Please log in to view payments.");
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  const fetchPayments = async () => {
+    if (!getToken()) return;
+    errorToastShownRef.current = false;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page: "1", limit: "200" });
+      if (search.trim()) params.set("search", search.trim());
+      const res = await apiRequest(`/api/v1/finance/payments?${params}`);
+      setPayments((res.items || []).map(paymentToRow));
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      if (!errorToastShownRef.current) {
+        errorToastShownRef.current = true;
+        toast.error(err.message || "Failed to load payments");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPayments();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -170,9 +237,39 @@ export default function PaymentsPage() {
   const filtered = payments.filter(
     (row) =>
       !search ||
-      row.client.toLowerCase().includes(search.toLowerCase()) ||
-      row.referenceNo.toLowerCase().includes(search.toLowerCase())
+      (row.client && row.client.toLowerCase().includes(search.toLowerCase())) ||
+      (row.referenceNo && row.referenceNo !== "-" && row.referenceNo.toLowerCase().includes(search.toLowerCase()))
   );
+
+  const handleSave = async (payload, isEdit) => {
+    try {
+      const body = {
+        client: payload.client,
+        amount: typeof payload.amount === "number" ? payload.amount : parseINR(String(payload.amount)),
+        date: toISODate(payload.date),
+        method: payload.paymentMethod || payload.method || "",
+        referenceNo: payload.referenceNo === "-" ? "" : (payload.referenceNo || ""),
+        invoiceRef: payload.invoiceRef === "-" ? "" : (payload.invoiceRef || ""),
+        notes: payload.notes === "-" ? "" : (payload.notes || ""),
+      };
+      if (isEdit && payload.id) {
+        await apiRequest(`/api/v1/finance/payments/${payload.id}`, { method: "PUT", body });
+        toast.success("Payment updated.");
+      } else {
+        await apiRequest("/api/v1/finance/payments", { method: "POST", body });
+        toast.success("Payment recorded.");
+      }
+      fetchPayments();
+    } catch (err) {
+      if (err?.status === 401) {
+        clearAuth();
+        toast.error("Session expired. Please log in again.");
+        navigate("/login", { replace: true });
+        return;
+      }
+      toast.error(err.message || "Failed to save payment");
+    }
+  };
 
   const handleExport = () => {
     const escapeCsv = (val) => {
@@ -248,7 +345,7 @@ export default function PaymentsPage() {
               aria-haspopup="true"
             >
               <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-xs shrink-0">
-                {USER_PROFILE.initials}
+                {currentUser.initials}
               </div>
             </button>
             {profileOpen && (
@@ -256,12 +353,12 @@ export default function PaymentsPage() {
                 <div className="px-4 pb-3 border-b border-gray-100">
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                      {USER_PROFILE.initials}
+                      {currentUser.initials}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-bold text-black truncate">{USER_PROFILE.name}</p>
-                      <p className="text-xs font-medium text-black/70">{USER_PROFILE.role}</p>
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{USER_PROFILE.email}</p>
+                      <p className="font-bold text-black truncate">{currentUser.name}</p>
+                      <p className="text-xs font-medium text-black/70">{currentUser.role}</p>
+                      <p className="text-xs text-gray-500 truncate mt-0.5">{currentUser.email}</p>
                     </div>
                   </div>
                 </div>
@@ -275,7 +372,7 @@ export default function PaymentsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => (window.location.href = "/")}
+                    onClick={() => { clearAuth(); navigate("/login"); }}
                     className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition text-left"
                   >
                     <LogOut className="w-4 h-4" strokeWidth={2} />
@@ -291,24 +388,33 @@ export default function PaymentsPage() {
       <RecordPaymentModal
         open={showRecordPaymentModal}
         onClose={() => { setShowRecordPaymentModal(false); setEditingPayment(null); }}
-        onSave={(p, isEdit) => {
-          if (isEdit) {
-            setPayments((prev) => prev.map((i) => (i.id === p.id ? p : i)));
-          } else {
-            setPayments((prev) => [p, ...prev]);
-          }
-        }}
+        onSave={handleSave}
         payment={editingPayment}
       />
 
       <div className="flex-1 min-h-0 p-6 overflow-auto">
-        {/* Stat cards – same style as HR DashboardOverview */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Total Received</p>
-                <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">₹22,50,850</p>
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-body">Loading payments…</div>
+        ) : (
+          <>
+            {(() => {
+              const totalReceived = filtered.reduce((s, r) => s + (r.amountNum || 0), 0);
+              const now = new Date();
+              const thisMonth = filtered
+                .filter((r) => {
+                  if (!r.date || r.date === "-") return false;
+                  const d = r.date.split("-");
+                  if (d.length !== 3) return false;
+                  return parseInt(d[2], 10) === now.getFullYear() && parseInt(d[1], 10) === now.getMonth() + 1;
+                })
+                .reduce((s, r) => s + (r.amountNum || 0), 0);
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                  <div className="group rounded-2xl bg-teal-100 border-2 border-teal-200 p-6 shadow-md hover:shadow-lg transition-all duration-200">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1.5">Total Received</p>
+                        <p className="text-2xl font-bold text-teal-900 tabular-nums tracking-tight">{formatINR(totalReceived)}</p>
                 <p className="text-xs font-medium text-teal-700/80 mt-1.5">All time</p>
               </div>
               <span className="w-12 h-12 rounded-xl bg-teal-200 flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -320,7 +426,7 @@ export default function PaymentsPage() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider mb-1.5">Transactions</p>
-                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">7</p>
+                <p className="text-2xl font-bold text-blue-900 tabular-nums tracking-tight">{filtered.length}</p>
                 <p className="text-xs font-medium text-blue-700/80 mt-1.5">Total count</p>
               </div>
               <span className="w-12 h-12 rounded-xl bg-blue-200 flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -332,7 +438,7 @@ export default function PaymentsPage() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-[11px] font-bold text-violet-800 uppercase tracking-wider mb-1.5">This Month</p>
-                <p className="text-2xl font-bold text-violet-900 tabular-nums tracking-tight">₹0</p>
+                <p className="text-2xl font-bold text-violet-900 tabular-nums tracking-tight">{formatINR(thisMonth)}</p>
                 <p className="text-xs font-medium text-violet-700/80 mt-1.5">Current month</p>
               </div>
               <span className="w-12 h-12 rounded-xl bg-violet-200 flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -340,9 +446,11 @@ export default function PaymentsPage() {
               </span>
             </div>
           </div>
-        </div>
+                </div>
+              );
+            })()}
 
-        {/* Payment Ledger – same card header style as HR DashboardOverview */}
+        {/* Payment Ledger */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-brand-soft/80 to-transparent flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -398,7 +506,7 @@ export default function PaymentsPage() {
               </thead>
               <tbody>
                 {filtered.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50">
+                  <tr key={row._id || row.id || idx} className="border-b border-gray-100 hover:bg-gray-50/50">
                     <td className="py-3 px-3 text-right text-body tabular-nums">{idx + 1}</td>
                     <td className="py-3 px-3 font-medium text-brand-dark overflow-hidden">
                       <span className="block truncate" title={row.client}>{row.client}</span>
@@ -436,6 +544,8 @@ export default function PaymentsPage() {
             <div className="py-12 text-center text-body text-sm">No payments match your search.</div>
           )}
         </div>
+        </>
+        )}
       </div>
     </>
   );
