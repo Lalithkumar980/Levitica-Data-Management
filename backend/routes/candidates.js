@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const Candidate = require('../models/Candidate');
-const { authenticate } = require('../middleware/auth');
 
-/** GET /api/candidates — list all candidates (optional: auth later) */
+/** GET /api/candidates — list all candidates */
 router.get('/', async (req, res) => {
   try {
     const list = await Candidate.find().sort({ createdAt: -1 }).lean();
@@ -40,8 +39,7 @@ router.post('/', async (req, res) => {
       referredBy: body.referredBy ?? null,
       recruiter: body.recruiter || { initials: 'PN', name: 'Priya Nair' },
     });
-    const out = doc.toJSON();
-    res.status(201).json(out);
+    res.status(201).json(doc.toJSON());
   } catch (err) {
     console.error('Candidate create error:', err);
     res.status(500).json({ message: err.message || 'Failed to create candidate' });
