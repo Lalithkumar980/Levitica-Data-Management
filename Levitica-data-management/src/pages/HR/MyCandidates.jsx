@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Bell, Search, UserPlus, X, Save, Calendar, Pencil, Users, FileCheck, Clock, UserCheck, UserX, Upload, FileSpreadsheet, ArrowLeft, User, LogOut, FileText } from "lucide-react";
 import * as XLSX from "xlsx";
-import { useNavigate } from "react-router-dom";
-import { useCandidates } from "../../context/CandidatesContext";
+import { apiRequest } from "../../utils/api";
+import { toast } from "react-toastify";
 
 const getInitials = (name) =>
   name
@@ -12,6 +12,12 @@ const getInitials = (name) =>
     .join("")
     .toUpperCase()
     .slice(0, 2);
+
+/** Build API payload from candidate (strip id for create) */
+function toApiCandidate(c) {
+  const { id, ...rest } = c;
+  return rest;
+}
 
 const Badge = ({ children, variant = "success" }) => {
   const classes = {
@@ -476,7 +482,7 @@ function buildHeaderMap(rawHeaders) {
     offer: getKey(HEADER_ALIASES.offer),
     onboarding: getKey(HEADER_ALIASES.onboarding),
     "joining date": getKey(HEADER_ALIASES["joining date"]),
-    note: getKey(HEADER_ALIASES.Note),
+    note: getKey(HEADER_ALIASES.note),
     "referred by": getKey(HEADER_ALIASES["referred by"]),
     recruiter: getKey(HEADER_ALIASES.recruiter),
   };
@@ -715,14 +721,31 @@ function ImportCandidatesModal({ open, onClose, onImport }) {
 }
 
 export default function MyCandidates() {
-  const { candidates, setCandidates } = useCandidates();
-  const navigate = useNavigate();
+  const [candidates, setCandidates] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editingCandidate, setEditingCandidate] = useState(null);
   const [addStep, setAddStep] = useState("choice");
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+
+  const fetchCandidates = async () => {
+    try {
+      setLoading(true);
+      const data = await apiRequest("/api/candidates");
+      setCandidates(Array.isArray(data.candidates) ? data.candidates : []);
+    } catch (err) {
+      toast.error(err.message || "Failed to load candidates");
+      setCandidates([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCandidates();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -738,20 +761,47 @@ export default function MyCandidates() {
     setAddStep("choice");
   };
 
-  const handleSaveCandidate = (payload, isEdit) => {
-    if (isEdit) {
-      setCandidates((prev) => prev.map((c) => (c.id === payload.id ? payload : c)));
-    } else {
-      setCandidates((prev) => [payload, ...prev]);
+  const handleSaveCandidate = async (payload, isEdit) => {
+    try {
+      if (isEdit && payload.id) {
+        const updated = await apiRequest(`/api/candidates/${payload.id}`, {
+          method: "PUT",
+          body: toApiCandidate(payload),
+        });
+        setCandidates((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+        toast.success("Candidate updated.");
+      } else {
+        const created = await apiRequest("/api/candidates", {
+          method: "POST",
+          body: toApiCandidate(payload),
+        });
+        setCandidates((prev) => [created, ...prev]);
+        toast.success("Candidate added.");
+      }
+      setEditingCandidate(null);
+      setAddModalOpen(false);
+      setAddStep("choice");
+    } catch (err) {
+      toast.error(err.message || "Failed to save candidate");
     }
-    setEditingCandidate(null);
-    setAddModalOpen(false);
-    setAddStep("choice");
   };
 
-  const handleBulkImport = (candidatesToAdd) => {
-    if (candidatesToAdd?.length) {
-      setCandidates((prev) => [...candidatesToAdd, ...prev]);
+  const handleBulkImport = async (candidatesToAdd) => {
+    if (!candidatesToAdd?.length) return;
+    try {
+      const bulk = candidatesToAdd.map((c) => toApiCandidate(c));
+      const data = await apiRequest("/api/candidates/bulk", {
+        method: "POST",
+        body: { candidates: bulk },
+      });
+      const created = data.candidates || [];
+      if (created.length) {
+        setCandidates((prev) => [...created, ...prev]);
+        toast.success(`${created.length} candidate(s) imported.`);
+      }
+      handleCloseAddModal();
+    } catch (err) {
+      toast.error(err.message || "Failed to import candidates");
     }
   };
 
@@ -966,6 +1016,11 @@ export default function MyCandidates() {
           </div>
 
           <div className="overflow-x-auto">
+            {loading ? (
+              <div className="py-12 text-center text-body">Loading candidates…</div>
+            ) : candidates.length === 0 ? (
+              <div className="py-12 text-center text-body">No candidates yet. Add one or import from Excel.</div>
+            ) : (
             <table className="w-max min-w-[1100px] text-sm table-fixed">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
@@ -1067,6 +1122,7 @@ export default function MyCandidates() {
                 ))}
               </tbody>
             </table>
+            )}
           </div>
         </div>
       </div>

@@ -26,6 +26,16 @@ import EmailLogPage from "./pages/Sales/EmailLogPage";
 import DocumentsPage from "./pages/Sales/DocumentsPage";
 import BulkUploadPage from "./pages/Sales/BulkUploadPage";
 import ReportsPage from "./pages/Sales/ReportsPage";
+import SalesRepDashboard from "./pages/SalesRep/SalesRepDashboard";
+import SalesRepOverview from "./pages/SalesRep/SalesOverview";
+import SalesRepPipelinePage from "./pages/SalesRep/PipelinePage";
+import SalesRepContactsPage from "./pages/SalesRep/ContactsPage";
+import SalesRepLeadsPage from "./pages/SalesRep/LeadsPage";
+import SalesRepCompaniesPage from "./pages/SalesRep/CompaniesPage";
+import SalesRepActivityLogPage from "./pages/SalesRep/ActivityLogPage";
+import SalesRepLogCallPage from "./pages/SalesRep/LogCallPage";
+import SalesRepEmailLogPage from "./pages/SalesRep/EmailLogPage";
+import SalesRepDocumentsPage from "./pages/SalesRep/DocumentsPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminOverview from "./pages/Admin/AdminOverview";
 import AdminPlaceholder from "./pages/Admin/AdminPlaceholder";
@@ -103,6 +113,17 @@ function App() {
           <Route path="documents" element={<DocumentsPage />} />
           <Route path="bulk-upload" element={<BulkUploadPage />} />
           <Route path="reports" element={<ReportsPage />} />
+        </Route>
+        <Route path="/sales-rep" element={<SalesRepDashboard />}>
+          <Route index element={<SalesRepOverview />} />
+          <Route path="pipeline" element={<SalesRepPipelinePage />} />
+          <Route path="contacts" element={<SalesRepContactsPage />} />
+          <Route path="leads" element={<SalesRepLeadsPage />} />
+          <Route path="companies" element={<SalesRepCompaniesPage />} />
+          <Route path="activity" element={<SalesRepActivityLogPage />} />
+          <Route path="log-call" element={<SalesRepLogCallPage />} />
+          <Route path="email-log" element={<SalesRepEmailLogPage />} />
+          <Route path="documents" element={<SalesRepDocumentsPage />} />
         </Route>
         <Route path="/admin" element={<AdminDashboard />}>
           <Route index element={<AdminOverview />} />

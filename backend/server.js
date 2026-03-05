@@ -16,8 +16,10 @@ app.get('/api/health', (req, res) => {
 
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
+const candidateRoutes = require('./routes/candidates');
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/candidates', candidateRoutes);
 
 // Connect to MongoDB if MONGODB_URI is set (e.g. in .env)
 if (process.env.MONGODB_URI) {

@@ -72,7 +72,8 @@ export default function Login() {
         localStorage.setItem("levitica_user_role", data.user.role || "");
       } catch (_) {}
       if (userRole === "Admin") return navigate("/admin");
-      if (userRole === "Sales Manager" || userRole === "Sales Rep") return navigate("/sales");
+      if (userRole === "Sales Manager") return navigate("/sales");
+      if (userRole === "Sales Rep") return navigate("/sales-rep");
       if (userRole === "HR Management") return navigate("/dashboard");
       if (userRole === "Finance Management") return navigate("/finance");
       navigate("/admin");
