@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, FileText, LogOut } from "lucide-react";
 
 export default function HRSidebar() {
   const navigate = useNavigate();
@@ -70,6 +70,20 @@ export default function HRSidebar() {
                 <span className="shrink-0 bg-red-500 text-white text-[10px] font-bold min-w-[1.25rem] h-5 rounded-full flex items-center justify-center">
                   3
                 </span>
+              </div>
+            )}
+          </NavLink>
+          <NavLink to="/dashboard/offer-letter">
+            {({ isActive }) => (
+              <div
+                className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-200
+                  ${isActive ? "bg-blue-500 text-white font-bold" : "text-black font-semibold hover:bg-blue-50 hover:text-blue-600"}`}
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-600 rounded-r" />
+                )}
+                <FileText className="w-5 h-5 shrink-0" strokeWidth={2} />
+                <span className="text-sm">Offer Letter Generator</span>
               </div>
             )}
           </NavLink>

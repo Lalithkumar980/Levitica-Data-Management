@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Bell, Search, UserPlus, X, Save, Calendar, Pencil, Users, FileCheck, Clock, UserCheck, UserX, Upload, FileSpreadsheet, ArrowLeft, User, LogOut } from "lucide-react";
+import { Bell, Search, UserPlus, X, Save, Calendar, Pencil, Users, FileCheck, Clock, UserCheck, UserX, Upload, FileSpreadsheet, ArrowLeft, User, LogOut, FileText } from "lucide-react";
 import * as XLSX from "xlsx";
+import { useNavigate } from "react-router-dom";
+import { useCandidates } from "../../context/CandidatesContext";
 
 const getInitials = (name) =>
   name
@@ -10,60 +12,6 @@ const getInitials = (name) =>
     .join("")
     .toUpperCase()
     .slice(0, 2);
-
-const INITIAL_CANDIDATES = [
-  {
-    id: 1,
-    name: "Rohan Mehta",
-    note: "Excellent technical skills",
-    position: "Backend Developer",
-    dept: "Engineering",
-    interviewDate: "2025-01-10",
-    came: "Yes",
-    screening: "Pass",
-    technical: "Pass / Virtual",
-    hrRound: "Pass",
-    offer: "Done",
-    onboarding: "Completed",
-    joiningDate: "2025-02-01",
-    referredBy: { initials: "AV", name: "Amit Verma", phone: "9876543210" },
-    recruiter: { initials: "PN", name: "Priya Nair" },
-  },
-  {
-    id: 2,
-    name: "Deepak Rao",
-    note: null,
-    position: "HR Executive",
-    dept: "HR",
-    interviewDate: "2025-01-18",
-    came: "Yes",
-    screening: "Pass",
-    technical: "Pass / Virtual",
-    hrRound: "Pass",
-    offer: "Done",
-    onboarding: "In Progress",
-    joiningDate: "2025-03-01",
-    referredBy: { initials: "KS", name: "Kavita Singh", phone: "9123456780" },
-    recruiter: { initials: "PN", name: "Priya Nair" },
-  },
-  {
-    id: 3,
-    name: "Pooja Menon",
-    note: "Final HR round scheduled",
-    position: "Product Manager",
-    dept: "Product",
-    interviewDate: "2025-02-05",
-    came: "Yes",
-    screening: "Pass",
-    technical: "Pass / Virtual",
-    hrRound: "Pending",
-    offer: "Pending",
-    onboarding: null,
-    joiningDate: null,
-    referredBy: null,
-    recruiter: { initials: "PN", name: "Priya Nair" },
-  },
-];
 
 const Badge = ({ children, variant = "success" }) => {
   const classes = {
@@ -767,7 +715,8 @@ function ImportCandidatesModal({ open, onClose, onImport }) {
 }
 
 export default function MyCandidates() {
-  const [candidates, setCandidates] = useState(INITIAL_CANDIDATES);
+  const { candidates, setCandidates } = useCandidates();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editingCandidate, setEditingCandidate] = useState(null);
@@ -1095,6 +1044,15 @@ export default function MyCandidates() {
                     </td>
                     <td className="py-3 px-3 text-center">
                       <div className="flex items-center justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => navigate("/dashboard/offer-letter", { state: { selectedCandidate: c } })}
+                          className="inline-flex p-2 rounded-lg text-body hover:bg-brand-soft hover:text-brand transition"
+                          aria-label="Generate offer"
+                          title="Generate offer letter"
+                        >
+                          <FileText className="w-4 h-4" strokeWidth={2} />
+                        </button>
                         <button
                           type="button"
                           onClick={() => openEditModal(c)}

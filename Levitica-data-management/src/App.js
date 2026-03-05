@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import HRDashboard from "./pages/HRDashboard";
 import DashboardOverview from "./pages/HR/DashboardOverview";
 import MyCandidates from "./pages/HR/MyCandidates";
+import OfferLetterGenerator from "./pages/HR/OfferLetterGenerator";
 import FinanceDashboard from "./pages/FinanceDashboard";
 import FinanceOverview from "./pages/Finance/FinanceOverview";
 import InvoicesPage from "./pages/Finance/InvoicesPage";
@@ -80,6 +81,7 @@ function App() {
         <Route path="/dashboard" element={<HRDashboard />}>
           <Route index element={<DashboardOverview />} />
           <Route path="candidates" element={<MyCandidates />} />
+          <Route path="offer-letter" element={<OfferLetterGenerator />} />
         </Route>
         <Route path="/finance" element={<FinanceDashboard />}>
           <Route index element={<FinanceOverview />} />
